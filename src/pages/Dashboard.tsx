@@ -129,7 +129,8 @@ export default function Dashboard() {
       {isDemoMode() && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm flex items-center justify-between">
           <span>🎮 <strong>Demo Mode</strong> — Using sample data. Connect your real YouTube channel for personalised insights.</span>
-          <Button size="sm" variant="outline" onClick={() => navigate("/")}>Connect Channel</Button>
+          <Button size="sm" variant="outline" onClick={() => { localStorage.removeItem("demo_mode"); navigate("/"); }}>Connect Channel</Button>
+          <Button size="sm" variant="ghost" onClick={() => { localStorage.removeItem("demo_mode"); navigate("/"); }}>Exit Demo</Button>
         </div>
       )}
 

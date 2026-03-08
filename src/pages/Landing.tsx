@@ -3,8 +3,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Zap, Brain, TrendingUp, MessageSquare, Palette, BarChart3, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated, signInWithGoogle } from "@/lib/youtube-auth";
-import { enableDemoMode } from "@/lib/youtube-api";
+import { getToken, signInWithGoogle } from "@/lib/youtube-auth";
+import { enableDemoMode, disableDemoMode } from "@/lib/youtube-api";
 
 const features = [
   { icon: Brain, title: "AI Strategy Engine", desc: "Know exactly what to post next based on your real data" },
@@ -24,7 +24,10 @@ export default function Landing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated()) navigate("/dashboard", { replace: true });
+    // Clear demo mode when visiting landing page
+    disableDemoMode();
+    // Only auto-redirect if user has a real YouTube token
+    if (getToken()) navigate("/dashboard", { replace: true });
   }, []);
 
   function handleConnect() {
