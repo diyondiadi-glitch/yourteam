@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { isAuthenticated } from "@/lib/youtube-auth";
 import { getMyChannel, getRecentVideos, getChannelContext, formatCount, type VideoData, type ChannelData } from "@/lib/youtube-api";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
+import { getSelectedVideo, clearSelectedVideo } from "@/lib/video-context";
 
 interface Diagnosis {
   reason: string;
