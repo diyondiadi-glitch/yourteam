@@ -21,6 +21,14 @@ const roles = [
 export default function Landing() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (isAuthenticated()) navigate("/dashboard", { replace: true });
+  }, []);
+
+  function handleConnect() {
+    window.location.href = getGoogleOAuthURL();
+  }
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Hero glow */}
