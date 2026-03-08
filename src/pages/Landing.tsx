@@ -73,9 +73,10 @@ export default function Landing() {
               size="lg"
               className="h-14 px-8 text-lg rounded-xl"
               onClick={handleConnect}
+              disabled={connecting}
             >
-              Connect YouTube Channel
-              <ArrowRight className="ml-2 h-5 w-5" />
+              {connecting ? "Connecting..." : "Connect YouTube Channel"}
+              {!connecting && <ArrowRight className="ml-2 h-5 w-5" />}
             </Button>
             <Button
               variant="ghost-muted"
