@@ -36,6 +36,8 @@ export default function Landing() {
     const result = await signInWithGoogle();
     if (result.error) {
       toast({ title: "Connection Issue", description: result.error, variant: "destructive" });
+    } else {
+      navigate("/dashboard", { replace: true });
     }
     setConnecting(false);
   }
