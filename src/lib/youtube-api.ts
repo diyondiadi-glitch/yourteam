@@ -20,72 +20,85 @@ function useMock(): boolean {
   return !getToken() || isDemoMode();
 }
 
-// ── Mock data ───────────────────────────────────────────────────────
+// ── Mock data — "Alex Creates" channel ──────────────────────────────
 const MOCK_CHANNEL: ChannelData = {
-  id: "UCdemo123",
-  title: "TechCreator Pro",
-  avatar: "https://ui-avatars.com/api/?name=TC&background=6d28d9&color=fff&size=88",
-  subscriberCount: 48200,
-  viewCount: 3_740_000,
-  videoCount: 127,
-  customUrl: "@techcreatorpro",
+  id: "UCdemo_alexcreates",
+  title: "Alex Creates",
+  avatar: "https://ui-avatars.com/api/?name=AC&background=f59e0b&color=fff&size=88",
+  subscriberCount: 24_700,
+  viewCount: 180_000,
+  videoCount: 86,
+  customUrl: "@alexcreates",
 };
 
 const MOCK_VIDEOS: VideoData[] = [
-  { id: "v1", title: "I Tried AI Coding Tools For 30 Days — Here's What Happened", thumbnail: "https://picsum.photos/seed/v1/320/180", viewCount: 184_000, likeCount: 9200, commentCount: 743, publishedAt: "2026-02-18T14:00:00Z" },
-  { id: "v2", title: "The BEST Productivity Setup for Developers in 2026", thumbnail: "https://picsum.photos/seed/v2/320/180", viewCount: 97_500, likeCount: 5100, commentCount: 312, publishedAt: "2026-02-10T16:00:00Z" },
-  { id: "v3", title: "Why I Quit My $200K Job to Make YouTube Videos", thumbnail: "https://picsum.photos/seed/v3/320/180", viewCount: 312_000, likeCount: 18400, commentCount: 1520, publishedAt: "2026-01-28T12:00:00Z" },
-  { id: "v4", title: "5 VS Code Extensions You're Missing Out On", thumbnail: "https://picsum.photos/seed/v4/320/180", viewCount: 42_300, likeCount: 2100, commentCount: 189, publishedAt: "2026-01-20T10:00:00Z" },
-  { id: "v5", title: "I Built a SaaS in 48 Hours — Full Breakdown", thumbnail: "https://picsum.photos/seed/v5/320/180", viewCount: 156_000, likeCount: 8700, commentCount: 634, publishedAt: "2026-01-12T15:00:00Z" },
-  { id: "v6", title: "React vs Vue vs Svelte — The REAL Answer in 2026", thumbnail: "https://picsum.photos/seed/v6/320/180", viewCount: 78_200, likeCount: 3900, commentCount: 892, publishedAt: "2026-01-05T11:00:00Z" },
-  { id: "v7", title: "How I Get 10x More Done With This One Trick", thumbnail: "https://picsum.photos/seed/v7/320/180", viewCount: 23_100, likeCount: 1200, commentCount: 98, publishedAt: "2025-12-28T09:00:00Z" },
-  { id: "v8", title: "The Truth About Making Money on YouTube", thumbnail: "https://picsum.photos/seed/v8/320/180", viewCount: 201_000, likeCount: 12300, commentCount: 1100, publishedAt: "2025-12-20T14:00:00Z" },
-  { id: "v9", title: "Building My Dream Home Office Setup", thumbnail: "https://picsum.photos/seed/v9/320/180", viewCount: 35_400, likeCount: 1800, commentCount: 156, publishedAt: "2025-12-15T16:00:00Z" },
-  { id: "v10", title: "Why Every Developer Needs to Learn AI NOW", thumbnail: "https://picsum.photos/seed/v10/320/180", viewCount: 128_000, likeCount: 6400, commentCount: 478, publishedAt: "2025-12-08T13:00:00Z" },
-  { id: "v11", title: "I Mass-Applied to 100 Tech Jobs — Results Shocked Me", thumbnail: "https://picsum.photos/seed/v11/320/180", viewCount: 89_300, likeCount: 4500, commentCount: 367, publishedAt: "2025-12-01T10:00:00Z" },
-  { id: "v12", title: "Stop Using ChatGPT Wrong — Do This Instead", thumbnail: "https://picsum.photos/seed/v12/320/180", viewCount: 245_000, likeCount: 14200, commentCount: 1340, publishedAt: "2025-11-22T12:00:00Z" },
-  { id: "v13", title: "My Honest Review of the M4 MacBook Pro", thumbnail: "https://picsum.photos/seed/v13/320/180", viewCount: 67_800, likeCount: 3400, commentCount: 289, publishedAt: "2025-11-15T15:00:00Z" },
-  { id: "v14", title: "Linux vs Mac vs Windows for Coding in 2026", thumbnail: "https://picsum.photos/seed/v14/320/180", viewCount: 54_600, likeCount: 2700, commentCount: 721, publishedAt: "2025-11-08T11:00:00Z" },
-  { id: "v15", title: "How I Hit 40K Subscribers in One Year", thumbnail: "https://picsum.photos/seed/v15/320/180", viewCount: 174_000, likeCount: 11200, commentCount: 890, publishedAt: "2025-11-01T14:00:00Z" },
-  { id: "v16", title: "The Database No One Talks About (But Should)", thumbnail: "https://picsum.photos/seed/v16/320/180", viewCount: 31_200, likeCount: 1600, commentCount: 134, publishedAt: "2025-10-24T10:00:00Z" },
-  { id: "v17", title: "Full Stack App Tutorial — Zero to Production", thumbnail: "https://picsum.photos/seed/v17/320/180", viewCount: 92_100, likeCount: 4800, commentCount: 256, publishedAt: "2025-10-16T12:00:00Z" },
-  { id: "v18", title: "I Paid Fiverr Devs to Build My App — Disaster?", thumbnail: "https://picsum.photos/seed/v18/320/180", viewCount: 289_000, likeCount: 16100, commentCount: 1890, publishedAt: "2025-10-08T16:00:00Z" },
-  { id: "v19", title: "Top 10 GitHub Repos You Need to Star", thumbnail: "https://picsum.photos/seed/v19/320/180", viewCount: 45_700, likeCount: 2300, commentCount: 178, publishedAt: "2025-10-01T09:00:00Z" },
-  { id: "v20", title: "The Dark Side of Being a Tech YouTuber", thumbnail: "https://picsum.photos/seed/v20/320/180", viewCount: 162_000, likeCount: 9800, commentCount: 923, publishedAt: "2025-09-24T13:00:00Z" },
+  { id: "v1", title: "My 5 AM Morning Routine That Changed Everything", thumbnail: "https://picsum.photos/seed/ac1/320/180", viewCount: 32_400, likeCount: 1_800, commentCount: 247, publishedAt: "2026-02-28T14:00:00Z" },
+  { id: "v2", title: "I Tried Every Productivity App So You Don't Have To", thumbnail: "https://picsum.photos/seed/ac2/320/180", viewCount: 28_100, likeCount: 1_520, commentCount: 198, publishedAt: "2026-02-21T16:00:00Z" },
+  { id: "v3", title: "The $300 Desk Setup That Beats a $3000 One", thumbnail: "https://picsum.photos/seed/ac3/320/180", viewCount: 45_600, likeCount: 2_890, commentCount: 412, publishedAt: "2026-02-14T12:00:00Z" },
+  { id: "v4", title: "Why Notion Is Killing Your Productivity (Use This Instead)", thumbnail: "https://picsum.photos/seed/ac4/320/180", viewCount: 19_200, likeCount: 980, commentCount: 134, publishedAt: "2026-02-07T10:00:00Z" },
+  { id: "v5", title: "How I Automated 80% of My Work With AI Tools", thumbnail: "https://picsum.photos/seed/ac5/320/180", viewCount: 38_900, likeCount: 2_100, commentCount: 326, publishedAt: "2026-01-31T15:00:00Z" },
+  { id: "v6", title: "The Minimalist Tech Stack for Content Creators", thumbnail: "https://picsum.photos/seed/ac6/320/180", viewCount: 15_800, likeCount: 890, commentCount: 102, publishedAt: "2026-01-24T11:00:00Z" },
+  { id: "v7", title: "I Deleted Social Media for 30 Days — Here's What Happened", thumbnail: "https://picsum.photos/seed/ac7/320/180", viewCount: 52_300, likeCount: 3_200, commentCount: 567, publishedAt: "2026-01-17T09:00:00Z" },
+  { id: "v8", title: "Building a Second Brain: My Complete System", thumbnail: "https://picsum.photos/seed/ac8/320/180", viewCount: 22_700, likeCount: 1_340, commentCount: 189, publishedAt: "2026-01-10T14:00:00Z" },
+  { id: "v9", title: "The 3 Habits That 10x'd My Output", thumbnail: "https://picsum.photos/seed/ac9/320/180", viewCount: 27_500, likeCount: 1_600, commentCount: 213, publishedAt: "2026-01-03T16:00:00Z" },
+  { id: "v10", title: "Best Budget Tech for New YouTubers in 2026", thumbnail: "https://picsum.photos/seed/ac10/320/180", viewCount: 34_100, likeCount: 1_950, commentCount: 278, publishedAt: "2025-12-27T13:00:00Z" },
+  { id: "v11", title: "Why I Wake Up at 4:30 AM (Not What You Think)", thumbnail: "https://picsum.photos/seed/ac11/320/180", viewCount: 41_200, likeCount: 2_400, commentCount: 345, publishedAt: "2025-12-20T10:00:00Z" },
+  { id: "v12", title: "The ONE Tool That Replaced 10 Apps For Me", thumbnail: "https://picsum.photos/seed/ac12/320/180", viewCount: 18_600, likeCount: 1_020, commentCount: 156, publishedAt: "2025-12-13T12:00:00Z" },
+  { id: "v13", title: "How to Focus for 8+ Hours a Day (Science-Based)", thumbnail: "https://picsum.photos/seed/ac13/320/180", viewCount: 29_800, likeCount: 1_700, commentCount: 234, publishedAt: "2025-12-06T15:00:00Z" },
+  { id: "v14", title: "iPad vs Laptop for Productivity — The Real Answer", thumbnail: "https://picsum.photos/seed/ac14/320/180", viewCount: 16_400, likeCount: 920, commentCount: 118, publishedAt: "2025-11-29T11:00:00Z" },
+  { id: "v15", title: "How I Grew from 0 to 20K Subs in 8 Months", thumbnail: "https://picsum.photos/seed/ac15/320/180", viewCount: 48_900, likeCount: 3_100, commentCount: 489, publishedAt: "2025-11-22T14:00:00Z" },
+  { id: "v16", title: "My Exact Workflow for Making YouTube Videos", thumbnail: "https://picsum.photos/seed/ac16/320/180", viewCount: 21_300, likeCount: 1_250, commentCount: 178, publishedAt: "2025-11-15T10:00:00Z" },
+  { id: "v17", title: "Stop Multitasking: The Deep Work Method That Works", thumbnail: "https://picsum.photos/seed/ac17/320/180", viewCount: 25_600, likeCount: 1_480, commentCount: 201, publishedAt: "2025-11-08T12:00:00Z" },
+  { id: "v18", title: "I Tested 7 AI Writing Tools — Winner Shocked Me", thumbnail: "https://picsum.photos/seed/ac18/320/180", viewCount: 36_700, likeCount: 2_050, commentCount: 312, publishedAt: "2025-11-01T16:00:00Z" },
+  { id: "v19", title: "Ergonomic Setup Guide Under $500", thumbnail: "https://picsum.photos/seed/ac19/320/180", viewCount: 13_900, likeCount: 780, commentCount: 94, publishedAt: "2025-10-25T09:00:00Z" },
+  { id: "v20", title: "The Dark Side of Hustle Culture (My Honest Take)", thumbnail: "https://picsum.photos/seed/ac20/320/180", viewCount: 31_800, likeCount: 1_860, commentCount: 367, publishedAt: "2025-10-18T13:00:00Z" },
 ];
 
 const MOCK_COMMENTS: string[] = [
-  "Can you make a video on building a Chrome extension?",
-  "This was so helpful, saved me hours of work!",
-  "I've been following your channel since day 1 and the growth is incredible",
-  "Please do a video comparing Supabase vs Firebase in 2026!",
-  "The editing in this video is insane 🔥",
-  "I tried your method and it actually worked, gained 200 subs in a week",
-  "Would love to see more long-form tutorials like this",
-  "Bro dropped this and disappeared lol, need more uploads",
-  "How do you balance YouTube and your day job?",
-  "Your advice on thumbnails completely changed my CTR",
-  "Can you review my channel? I'm stuck at 1K subs",
-  "This video felt rushed compared to your usual quality",
-  "The tip about hooks at 4:32 was pure gold",
-  "More collabs with other tech creators please!",
-  "What camera and mic do you use? Audio quality is amazing",
-  "I disagree with your take on AI replacing developers",
-  "Your SaaS breakdown series is the best content on YouTube",
-  "Please do a mass-unsubscribe challenge from bad advice channels",
-  "The intro was way too long, almost clicked away",
-  "You should make a course, I'd buy it instantly",
+  "Can you do a video on time-blocking with Google Calendar?",
+  "This was exactly what I needed, thank you Alex!",
+  "Been watching since you had 500 subs, so proud of your growth!",
+  "Would love a comparison of Obsidian vs Notion for students",
+  "The editing quality keeps getting better every video 🔥",
+  "I implemented your morning routine and my productivity doubled",
+  "More videos on AI tools for creators please!",
+  "You should collab with Ali Abdaal, your styles are so similar",
+  "How do you stay consistent with uploads while working full time?",
+  "Your desk setup video convinced me to go minimalist",
+  "Can you review the new Remarkable tablet?",
+  "This video felt a bit short, would love more depth next time",
+  "The tip about batching content at 6:42 was incredible",
+  "Do a video on how you edit your videos!",
+  "What microphone do you use? Audio quality is so clean",
+  "I disagree about Notion being bad, it works great for teams",
+  "Your productivity system series is the best on YouTube",
+  "Please do a what's on my phone video!",
+  "The intro music change is fire, what track is that?",
+  "Would you ever do a course on building a second brain?",
 ];
 
 const MOCK_COMPETITOR: ChannelData = {
-  id: "UCcomp456",
-  title: "CodeMaster Daily",
-  avatar: "https://ui-avatars.com/api/?name=CM&background=dc2626&color=fff&size=88",
-  subscriberCount: 125_000,
-  viewCount: 12_400_000,
-  videoCount: 340,
-  customUrl: "@codemasterdaily",
+  id: "UCcomp_techflow",
+  title: "TechFlow Daily",
+  avatar: "https://ui-avatars.com/api/?name=TF&background=3b82f6&color=fff&size=88",
+  subscriberCount: 67_400,
+  viewCount: 890_000,
+  videoCount: 215,
+  customUrl: "@techflowdaily",
 };
+
+const MOCK_COMPETITOR_VIDEOS: VideoData[] = [
+  { id: "cv1", title: "I Replaced My Entire Workflow With ChatGPT", thumbnail: "https://picsum.photos/seed/cv1/320/180", viewCount: 89_200, likeCount: 4_100, commentCount: 523, publishedAt: "2026-02-25T14:00:00Z" },
+  { id: "cv2", title: "Why Most Productivity Advice Is Wrong", thumbnail: "https://picsum.photos/seed/cv2/320/180", viewCount: 45_600, likeCount: 2_300, commentCount: 312, publishedAt: "2026-02-18T10:00:00Z" },
+  { id: "cv3", title: "The 5 Apps That Run My Life in 2026", thumbnail: "https://picsum.photos/seed/cv3/320/180", viewCount: 67_800, likeCount: 3_200, commentCount: 401, publishedAt: "2026-02-11T16:00:00Z" },
+  { id: "cv4", title: "How to Build an Audience From Zero", thumbnail: "https://picsum.photos/seed/cv4/320/180", viewCount: 34_100, likeCount: 1_800, commentCount: 234, publishedAt: "2026-02-04T12:00:00Z" },
+  { id: "cv5", title: "$50 vs $500 vs $5000 Camera for YouTube", thumbnail: "https://picsum.photos/seed/cv5/320/180", viewCount: 112_000, likeCount: 5_600, commentCount: 678, publishedAt: "2026-01-28T15:00:00Z" },
+  { id: "cv6", title: "I Tried Being a Minimalist for 30 Days", thumbnail: "https://picsum.photos/seed/cv6/320/180", viewCount: 28_900, likeCount: 1_500, commentCount: 198, publishedAt: "2026-01-21T11:00:00Z" },
+  { id: "cv7", title: "Stop Using These Apps Immediately", thumbnail: "https://picsum.photos/seed/cv7/320/180", viewCount: 78_400, likeCount: 3_800, commentCount: 456, publishedAt: "2026-01-14T09:00:00Z" },
+  { id: "cv8", title: "The Truth About Making Money Online", thumbnail: "https://picsum.photos/seed/cv8/320/180", viewCount: 56_200, likeCount: 2_900, commentCount: 367, publishedAt: "2026-01-07T14:00:00Z" },
+  { id: "cv9", title: "My 2026 Content Strategy Revealed", thumbnail: "https://picsum.photos/seed/cv9/320/180", viewCount: 21_300, likeCount: 1_100, commentCount: 145, publishedAt: "2025-12-31T16:00:00Z" },
+  { id: "cv10", title: "Why I Switched From Mac to Linux", thumbnail: "https://picsum.photos/seed/cv10/320/180", viewCount: 41_700, likeCount: 2_100, commentCount: 289, publishedAt: "2025-12-24T13:00:00Z" },
+];
 
 // ── Real API fetch ──────────────────────────────────────────────────
 async function ytFetch(endpoint: string, params: Record<string, string> = {}) {
@@ -222,7 +235,7 @@ export async function getChannelById(channelId: string): Promise<ChannelData | n
 }
 
 export async function searchChannel(query: string): Promise<string | null> {
-  if (useMock()) return "UCcomp456";
+  if (useMock()) return "UCcomp_techflow";
 
   try {
     const data = await ytFetch("search", {
@@ -238,6 +251,7 @@ export async function searchChannel(query: string): Promise<string | null> {
 }
 
 export async function getChannelVideos(channelId: string, maxResults = 20): Promise<VideoData[]> {
+  if (useMock()) return MOCK_COMPETITOR_VIDEOS.slice(0, maxResults).map(v => ({ ...v }));
   return getRecentVideos(channelId, maxResults);
 }
 
