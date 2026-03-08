@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getToken, clearToken, isAuthenticated } from "@/lib/youtube-auth";
+import { getToken, clearToken, isAuthenticated, hasChannelConnected } from "@/lib/youtube-auth";
 import {
   getMyChannel,
   getRecentVideos,
@@ -16,7 +16,9 @@ import {
   type ChannelData,
   type VideoData,
 } from "@/lib/youtube-api";
+import { getStoredChannel, getStoredVideos } from "@/lib/youtube-public-api";
 import { generateVerdict, callGroq } from "@/lib/groq-api";
+import OnboardingModal from "@/components/OnboardingModal";
 
 const stagger = {
   container: { transition: { staggerChildren: 0.08 } },
@@ -33,32 +35,85 @@ export default function Dashboard() {
   const [quickWin, setQuickWin] = useState("");
   const [quickWinOpen, setQuickWinOpen] = useState(false);
   const [quickWinLoading, setQuickWinLoading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
       navigate("/", { replace: true });
       return;
     }
+    // If user is logged in but hasn't connected a channel and not in demo mode
+    if (!hasChannelConnected()) {
+      setShowOnboarding(true);
+      setLoading(false);
+      return;
+    }
     loadData();
   }, []);
+
+  function handleOnboardingComplete() {
+    setShowOnboarding(false);
+    loadData();
+  }
 
   async function loadData() {
     try {
       setLoading(true);
-      const ch = await getMyChannel();
-      setChannel(ch);
-      const vids = await getRecentVideos(ch.id, 6);
-      setVideos(vids);
 
-      try {
-        const v = await generateVerdict({
-          title: ch.title,
-          subscriberCount: ch.subscriberCount,
-          recentVideos: vids.map((v) => ({ title: v.title, viewCount: v.viewCount, publishedAt: v.publishedAt })),
-        });
-        setVerdict(v);
-      } catch {
-        setVerdict("Review your recent video performance and plan your next upload based on what's working.");
+      // Try stored real channel data first
+      const storedChannel = getStoredChannel();
+      const storedVideos = getStoredVideos();
+
+      if (storedChannel && storedVideos.length > 0 && !isDemoMode()) {
+        // Use stored real data, map to ChannelData/VideoData format
+        const ch: ChannelData = {
+          id: storedChannel.id,
+          title: storedChannel.title,
+          avatar: storedChannel.avatar,
+          subscriberCount: storedChannel.subscriberCount,
+          viewCount: storedChannel.viewCount,
+          videoCount: storedChannel.videoCount,
+          customUrl: storedChannel.customUrl,
+        };
+        setChannel(ch);
+        const vids: VideoData[] = storedVideos.slice(0, 6).map(v => ({
+          id: v.id,
+          title: v.title,
+          thumbnail: v.thumbnail,
+          viewCount: v.viewCount,
+          likeCount: v.likeCount,
+          commentCount: v.commentCount,
+          publishedAt: v.publishedAt,
+        }));
+        setVideos(vids);
+
+        try {
+          const v = await generateVerdict({
+            title: ch.title,
+            subscriberCount: ch.subscriberCount,
+            recentVideos: vids.map((v) => ({ title: v.title, viewCount: v.viewCount, publishedAt: v.publishedAt })),
+          });
+          setVerdict(v);
+        } catch {
+          setVerdict("Review your recent video performance and plan your next upload based on what's working.");
+        }
+      } else {
+        // Fall back to youtube-api (demo mode or OAuth token)
+        const ch = await getMyChannel();
+        setChannel(ch);
+        const vids = await getRecentVideos(ch.id, 6);
+        setVideos(vids);
+
+        try {
+          const v = await generateVerdict({
+            title: ch.title,
+            subscriberCount: ch.subscriberCount,
+            recentVideos: vids.map((v) => ({ title: v.title, viewCount: v.viewCount, publishedAt: v.publishedAt })),
+          });
+          setVerdict(v);
+        } catch {
+          setVerdict("Review your recent video performance and plan your next upload based on what's working.");
+        }
       }
     } catch (err: any) {
       setError(err.message || "Failed to load channel data");
@@ -71,8 +126,8 @@ export default function Dashboard() {
     setQuickWinLoading(true);
     setQuickWinOpen(true);
     try {
-      const ch = await getMyChannel();
-      const vids = await getRecentVideos(ch.id, 10);
+      const ch = channel || await getMyChannel();
+      const vids = videos.length > 0 ? videos : await getRecentVideos(ch.id, 10);
       const avgViews = vids.reduce((s, v) => s + v.viewCount, 0) / vids.length;
       const res = await callGroq(
         "You are a YouTube growth coach. Give the single highest-impact action this creator can take TODAY. One paragraph, be specific.",
@@ -88,14 +143,18 @@ export default function Dashboard() {
 
   function handleDisconnect() {
     clearToken();
-    localStorage.removeItem("demo_mode");
     navigate("/", { replace: true });
+  }
+
+  if (showOnboarding) {
+    return <OnboardingModal onComplete={handleOnboardingComplete} />;
   }
 
   if (error) {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-lg text-destructive">{error}</p>
+        <Button variant="ghost-muted" onClick={() => { setError(""); loadData(); }}>Retry</Button>
         <Button variant="ghost-muted" onClick={handleDisconnect}>Disconnect & Try Again</Button>
       </div>
     );
@@ -127,6 +186,14 @@ export default function Dashboard() {
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 relative">
       <DemoBanner />
+
+      {/* Connect channel banner for logged-in users without channel */}
+      {!isDemoMode() && !getStoredChannel() && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
+          <p className="text-sm">Connect your YouTube channel to see your real data</p>
+          <Button size="sm" onClick={() => setShowOnboarding(true)}>Connect Channel</Button>
+        </div>
+      )}
 
       {/* Channel Header */}
       {loading ? (
@@ -178,7 +245,6 @@ export default function Dashboard() {
       )}
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Recent Videos — now clickable */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-lg font-semibold">Recent Videos</h2>
           {loading ? (
@@ -186,11 +252,7 @@ export default function Dashboard() {
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
               {videos.map((v) => (
-                <div
-                  key={v.id}
-                  className="rounded-xl border border-border bg-card p-4 card-glow flex gap-3 items-start cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => navigate(`/video?id=${v.id}`)}
-                >
+                <div key={v.id} className="rounded-xl border border-border bg-card p-4 card-glow flex gap-3 items-start cursor-pointer hover:border-primary/30 transition-colors" onClick={() => navigate(`/video?id=${v.id}`)}>
                   <img src={v.thumbnail} alt={v.title} className="h-12 w-20 rounded-lg object-cover shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{v.title}</p>
@@ -210,7 +272,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right column */}
         <div className="space-y-6">
           <div>
             <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
@@ -233,21 +294,12 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Win FAB */}
-      <button
-        onClick={getQuickWin}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:shadow-primary/30 transition-all hover:scale-105 z-40"
-        title="Get Quick Win"
-      >
+      <button onClick={getQuickWin} className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:shadow-primary/30 transition-all hover:scale-105 z-40" title="Get Quick Win">
         <Zap className="h-6 w-6" />
       </button>
 
-      {/* Quick Win Popup */}
       {quickWinOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="fixed bottom-24 right-6 w-80 rounded-xl border border-primary/20 bg-card p-5 shadow-xl z-40"
-        >
+        <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="fixed bottom-24 right-6 w-80 rounded-xl border border-primary/20 bg-card p-5 shadow-xl z-40">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold uppercase text-primary">⚡ Quick Win</p>
             <button onClick={() => setQuickWinOpen(false)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>

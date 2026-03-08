@@ -1,4 +1,5 @@
 import { getToken } from "./youtube-auth";
+import { getStoredChannel, getStoredVideos } from "./youtube-public-api";
 
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
 const YT_API_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
@@ -17,6 +18,9 @@ export function disableDemoMode() {
 }
 
 function useMock(): boolean {
+  // If we have stored real channel data from public API, use that instead of mock
+  const storedChannel = getStoredChannel();
+  if (storedChannel && !isDemoMode()) return false;
   return !getToken() || isDemoMode();
 }
 
@@ -107,7 +111,7 @@ async function ytFetch(endpoint: string, params: Record<string, string> = {}) {
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (token) {
+  if (token && token !== "authenticated") {
     headers.Authorization = `Bearer ${token}`;
   } else {
     url.searchParams.set("key", YT_API_KEY);
@@ -141,12 +145,23 @@ export interface VideoData {
 
 // ── Exported functions (mock-aware) ─────────────────────────────────
 export async function getMyChannel(): Promise<ChannelData> {
+  // Check stored real data first
+  const stored = getStoredChannel();
+  if (stored && !isDemoMode()) {
+    return {
+      id: stored.id,
+      title: stored.title,
+      avatar: stored.avatar,
+      subscriberCount: stored.subscriberCount,
+      viewCount: stored.viewCount,
+      videoCount: stored.videoCount,
+      customUrl: stored.customUrl,
+    };
+  }
+
   if (useMock()) return { ...MOCK_CHANNEL };
 
-  const data = await ytFetch("channels", {
-    part: "snippet,statistics",
-    mine: "true",
-  });
+  const data = await ytFetch("channels", { part: "snippet,statistics", mine: "true" });
   const ch = data.items?.[0];
   if (!ch) throw new Error("No channel found");
   return {
@@ -161,28 +176,31 @@ export async function getMyChannel(): Promise<ChannelData> {
 }
 
 export async function getRecentVideos(channelId: string, maxResults = 6): Promise<VideoData[]> {
+  // Check stored real data first
+  const storedVids = getStoredVideos();
+  if (storedVids.length > 0 && !isDemoMode()) {
+    return storedVids.slice(0, maxResults).map(v => ({
+      id: v.id,
+      title: v.title,
+      thumbnail: v.thumbnail,
+      viewCount: v.viewCount,
+      likeCount: v.likeCount,
+      commentCount: v.commentCount,
+      publishedAt: v.publishedAt,
+    }));
+  }
+
   if (useMock()) return MOCK_VIDEOS.slice(0, maxResults).map(v => ({ ...v }));
 
-  const chData = await ytFetch("channels", {
-    part: "contentDetails",
-    id: channelId,
-  });
+  const chData = await ytFetch("channels", { part: "contentDetails", id: channelId });
   const uploadPlaylistId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
   if (!uploadPlaylistId) return [];
 
-  const plData = await ytFetch("playlistItems", {
-    part: "snippet",
-    playlistId: uploadPlaylistId,
-    maxResults: String(maxResults),
-  });
+  const plData = await ytFetch("playlistItems", { part: "snippet", playlistId: uploadPlaylistId, maxResults: String(maxResults) });
   const videoIds = plData.items?.map((item: any) => item.snippet.resourceId.videoId) || [];
   if (videoIds.length === 0) return [];
 
-  const vidData = await ytFetch("videos", {
-    part: "snippet,statistics",
-    id: videoIds.join(","),
-  });
-
+  const vidData = await ytFetch("videos", { part: "snippet,statistics", id: videoIds.join(",") });
   return vidData.items.map((v: any) => ({
     id: v.id,
     title: v.snippet.title,
@@ -198,12 +216,7 @@ export async function getVideoComments(videoId: string, maxResults = 50): Promis
   if (useMock()) return MOCK_COMMENTS.slice(0, maxResults);
 
   try {
-    const data = await ytFetch("commentThreads", {
-      part: "snippet",
-      videoId,
-      maxResults: String(maxResults),
-      order: "relevance",
-    });
+    const data = await ytFetch("commentThreads", { part: "snippet", videoId, maxResults: String(maxResults), order: "relevance" });
     return data.items?.map((item: any) => item.snippet.topLevelComment.snippet.textDisplay) || [];
   } catch {
     return [];
@@ -214,10 +227,7 @@ export async function getChannelById(channelId: string): Promise<ChannelData | n
   if (useMock()) return { ...MOCK_COMPETITOR };
 
   try {
-    const data = await ytFetch("channels", {
-      part: "snippet,statistics",
-      id: channelId,
-    });
+    const data = await ytFetch("channels", { part: "snippet,statistics", id: channelId });
     const ch = data.items?.[0];
     if (!ch) return null;
     return {
@@ -238,12 +248,7 @@ export async function searchChannel(query: string): Promise<string | null> {
   if (useMock()) return "UCcomp_techflow";
 
   try {
-    const data = await ytFetch("search", {
-      part: "snippet",
-      q: query,
-      type: "channel",
-      maxResults: "1",
-    });
+    const data = await ytFetch("search", { part: "snippet", q: query, type: "channel", maxResults: "1" });
     return data.items?.[0]?.snippet?.channelId || null;
   } catch {
     return null;
