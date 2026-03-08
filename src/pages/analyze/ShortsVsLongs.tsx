@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { GitCompare } from "lucide-react";
+import { GitCompare, Trophy, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
@@ -52,17 +53,13 @@ export default function ShortsVsLongs() {
       const ch = await getMyChannel();
       const vids = await getRecentVideos(ch.id, 20);
       setLoadStep(1);
-
-      // In demo mode, simulate short/long split based on title keywords
-      const shortVids = vids.filter((_, i) => i % 4 === 0); // Simulate ~25% shorts
+      const shortVids = vids.filter((_, i) => i % 4 === 0);
       const longVids = vids.filter((_, i) => i % 4 !== 0);
-
       const shortsStats = calcStats(shortVids);
       const longsStats = calcStats(longVids);
       setShorts(shortsStats);
       setLongs(longsStats);
       setLoadStep(2);
-
       const context = getChannelContext(ch, vids);
       const res = await callGroq(
         "You are a YouTube format strategist. Based on this creator's Shorts vs Long-form performance data, give a clear strategic recommendation on what format mix they should use. Include a specific weekly posting schedule. Be direct. 3-4 sentences.",
@@ -82,7 +79,6 @@ export default function ShortsVsLongs() {
     { label: "Avg Comments", short: shorts.avgComments, long: longs.avgComments },
     { label: "Like Rate %", short: shorts.likeRate, long: longs.likeRate },
     { label: "Comment Rate %", short: shorts.commentRate, long: longs.commentRate },
-    { label: "Video Count", short: shorts.count, long: longs.count },
   ] : [];
 
   if (loading) {
@@ -96,43 +92,76 @@ export default function ShortsVsLongs() {
   return (
     <FeaturePage emoji="📊" title="Format Battle Report" description="Should you be making Shorts or long videos?">
       <div className="space-y-6">
-        {/* Header */}
-        <div className="grid grid-cols-2 gap-4 text-center">
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+        {/* Header cards */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="cb-card text-center">
             <p className="text-2xl font-black text-primary">⚡ Shorts</p>
-            <p className="text-sm text-muted-foreground">{shorts?.count} videos</p>
+            <p className="t-body">{shorts?.count} videos</p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-5">
+          <div className="cb-card text-center">
             <p className="text-2xl font-black">🎬 Long-Form</p>
-            <p className="text-sm text-muted-foreground">{longs?.count} videos</p>
+            <p className="t-body">{longs?.count} videos</p>
           </div>
         </div>
 
-        {/* Comparison Bars */}
-        <div className="space-y-4">
+        {/* Battle bars — winner is full width */}
+        <div className="space-y-3">
           {dimensions.map((dim, i) => {
-            const max = Math.max(dim.short, dim.long, 1);
             const shortWins = dim.short > dim.long;
+            const winnerVal = Math.max(dim.short, dim.long);
+            const loserVal = Math.min(dim.short, dim.long);
+            const ratio = winnerVal > 0 ? (loserVal / winnerVal) * 100 : 0;
+
             return (
-              <motion.div key={dim.label} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} className="rounded-lg border border-border bg-card p-4">
-                <p className="text-sm font-semibold mb-3">{dim.label}</p>
+              <motion.div
+                key={dim.label}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.08 }}
+                className="cb-card !p-4"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="t-card-title text-sm">{dim.label}</p>
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + i * 0.1 }}
+                    className="winner-badge"
+                  >
+                    <Trophy className="h-3 w-3" />
+                    {shortWins ? "Shorts" : "Long-Form"}
+                  </motion.span>
+                </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs w-16 shrink-0">Shorts</span>
-                    <div className="flex-1 h-3 bg-border rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${(dim.short / max) * 100}%` }} transition={{ duration: 0.8 }} className={`h-full rounded-full ${shortWins ? "bg-primary" : "bg-muted-foreground"}`} />
+                    <span className="text-xs w-14 shrink-0 text-muted-foreground">Shorts</span>
+                    <div className="flex-1 h-3 bg-secondary rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: shortWins ? '100%' : `${ratio}%` }}
+                        transition={{ duration: 0.8, delay: i * 0.1 }}
+                        className={`h-full rounded-full ${shortWins ? 'bg-success' : 'bg-muted-foreground/40'}`}
+                      />
                     </div>
-                    <span className={`text-sm font-bold w-20 text-right ${shortWins ? "text-primary" : ""}`}>{typeof dim.short === "number" && dim.short > 1000 ? formatCount(dim.short) : dim.short}</span>
+                    <span className={`font-bold w-20 text-right ${shortWins ? 'data-number-win text-xl' : 'data-number-loss'}`}>
+                      {dim.short > 1000 ? formatCount(dim.short) : dim.short}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs w-16 shrink-0">Long</span>
-                    <div className="flex-1 h-3 bg-border rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${(dim.long / max) * 100}%` }} transition={{ duration: 0.8 }} className={`h-full rounded-full ${!shortWins ? "bg-primary" : "bg-muted-foreground"}`} />
+                    <span className="text-xs w-14 shrink-0 text-muted-foreground">Long</span>
+                    <div className="flex-1 h-3 bg-secondary rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: !shortWins ? '100%' : `${ratio}%` }}
+                        transition={{ duration: 0.8, delay: i * 0.1 }}
+                        className={`h-full rounded-full ${!shortWins ? 'bg-success' : 'bg-muted-foreground/40'}`}
+                      />
                     </div>
-                    <span className={`text-sm font-bold w-20 text-right ${!shortWins ? "text-primary" : ""}`}>{typeof dim.long === "number" && dim.long > 1000 ? formatCount(dim.long) : dim.long}</span>
+                    <span className={`font-bold w-20 text-right ${!shortWins ? 'data-number-win text-xl' : 'data-number-loss'}`}>
+                      {dim.long > 1000 ? formatCount(dim.long) : dim.long}
+                    </span>
                   </div>
                 </div>
-                <p className="text-xs text-primary mt-2 font-semibold">Winner: {shortWins ? "⚡ Shorts" : "🎬 Long-Form"}</p>
               </motion.div>
             );
           })}
@@ -140,12 +169,19 @@ export default function ShortsVsLongs() {
 
         {/* Verdict */}
         {verdict && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="rounded-xl border border-primary/20 bg-primary/5 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Strategic Recommendation</p>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="cb-card-glow p-6"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="t-section text-primary">🏆 STRATEGIC VERDICT</p>
               <CopyButton text={verdict} />
             </div>
-            <p className="text-sm leading-relaxed">{verdict}</p>
+            <p className="text-sm leading-relaxed font-medium">{verdict}</p>
+            <Button className="mt-4" onClick={() => navigate("/create/video-machine")}>
+              Build Your Next Video <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </motion.div>
         )}
       </div>

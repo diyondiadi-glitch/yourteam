@@ -53,8 +53,8 @@ export default function HealthCheck() {
 
       setLoadStep(2);
       const result = await callGroq(
-        `You are a YouTube channel health diagnostician. Analyse these 8 vital signs for this channel and return JSON: {overall_score: number 0-100, vital_signs: [{name: string, status: "healthy"|"warning"|"critical", score: number 0-100, explanation: string, fix: string}], narrative: string, urgent_fix: string}. The 8 vital signs are: Upload Consistency, Audience Engagement, Title Strength, Thumbnail Performance, Topic Diversity, Growth Velocity, Content Quality Signal, Algorithm Relationship. Be specific with data references.`,
-        `${context}\n\nAdditional metrics:\nAvg views: ${Math.round(avgViews)}\nAvg likes: ${Math.round(avgLikes)}\nAvg comments: ${Math.round(avgComments)}\nAvg days between uploads: ${Math.round(avgGap)}\nSubscribers: ${ch.subscriberCount}\n\nAnalyse all 8 vital signs.`
+        `You are a YouTube channel health diagnostician. Analyse these 8 vital signs and return JSON: {overall_score: number 0-100, vital_signs: [{name: string, status: "healthy"|"warning"|"critical", score: number 0-100, explanation: string (max 12 words), fix: string (max 10 words)}], narrative: string (2 sentences max), urgent_fix: string}. The 8 vital signs: Upload Consistency, Audience Engagement, Title Strength, Thumbnail Performance, Topic Diversity, Growth Velocity, Content Quality Signal, Algorithm Relationship. Be specific and concise.`,
+        `${context}\n\nAvg views: ${Math.round(avgViews)}\nAvg likes: ${Math.round(avgLikes)}\nAvg comments: ${Math.round(avgComments)}\nAvg days between uploads: ${Math.round(avgGap)}\nSubscribers: ${ch.subscriberCount}\n\nAnalyse all 8 vital signs.`
       );
 
       const parsed = parseJsonFromResponse(result);
@@ -72,16 +72,16 @@ export default function HealthCheck() {
     return <AlertTriangle className="h-5 w-5 text-destructive" />;
   };
 
-  const statusBg = (s: string) => {
-    if (s === "healthy") return "border-success/20 bg-success/5";
-    if (s === "warning") return "border-warning/20 bg-warning/5";
-    return "border-destructive/20 bg-destructive/5";
+  const scoreColor = (s: number) => {
+    if (s >= 70) return "score-good";
+    if (s >= 40) return "score-warn";
+    return "score-bad";
   };
 
-  const scoreColor = (s: number) => {
-    if (s >= 70) return "text-success";
-    if (s >= 40) return "text-warning";
-    return "text-destructive";
+  const scoreStyle = (s: number) => {
+    if (s >= 70) return { color: "hsl(var(--success))" };
+    if (s >= 40) return { color: "hsl(var(--warning))" };
+    return { color: "hsl(var(--destructive))" };
   };
 
   if (loading) {
@@ -104,63 +104,57 @@ export default function HealthCheck() {
     <FeaturePage emoji="🏥" title="Health Scanner" description="Something feels wrong with your channel but you can't figure out what.">
       {health && (
         <div className="space-y-6">
-          {/* Overall Score */}
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center py-8">
-            <div className="relative h-32 w-32">
-              <svg className="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
+          {/* Overall Score Ring */}
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center py-6">
+            <div className="relative h-36 w-36">
+              <svg className="h-36 w-36 -rotate-90" viewBox="0 0 120 120">
                 <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
                 <motion.circle
-                  cx="60" cy="60" r="52" fill="none" stroke="currentColor"
+                  cx="60" cy="60" r="52" fill="none"
                   strokeWidth="8" strokeLinecap="round"
                   strokeDasharray={`${health.overall_score * 3.27} 327`}
-                  className={scoreColor(health.overall_score)}
+                  style={scoreStyle(health.overall_score)}
                   initial={{ strokeDasharray: "0 327" }}
                   animate={{ strokeDasharray: `${health.overall_score * 3.27} 327` }}
-                  transition={{ duration: 1.5 }}
+                  transition={{ duration: 1.5, ease: "easeOut" }}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-3xl font-black ${scoreColor(health.overall_score)}`}>{health.overall_score}</span>
+                <span className="data-number-xl" style={scoreStyle(health.overall_score)}>{health.overall_score}</span>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-3">Overall Channel Health</p>
+            <p className="t-section mt-3">OVERALL CHANNEL HEALTH</p>
           </motion.div>
 
-          {/* Vital Signs Grid */}
-          <div className="grid md:grid-cols-2 gap-4">
+          {/* Vital Signs — compact */}
+          <div className="grid md:grid-cols-2 gap-3">
             {health.vital_signs?.map((vs, i) => (
               <motion.div
                 key={vs.name}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className={`rounded-xl border p-5 ${statusBg(vs.status)}`}
+                transition={{ delay: i * 0.06 }}
+                className="cb-card flex items-center gap-4"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
                     {statusIcon(vs.status)}
-                    <span className="font-semibold">{vs.name}</span>
+                    <span className="t-card-title truncate">{vs.name}</span>
                   </div>
-                  <span className={`text-lg font-bold ${scoreColor(vs.score)}`}>{vs.score}</span>
+                  <p className="t-body text-xs truncate">{vs.explanation}</p>
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">{vs.explanation}</p>
-                <div className="p-2 rounded-lg bg-background/50">
-                  <p className="text-xs text-success">💊 {vs.fix}</p>
+                <div className="text-right shrink-0">
+                  <span className="data-number-xl" style={scoreStyle(vs.score)}>{vs.score}</span>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          {/* Narrative */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="rounded-xl border border-border bg-card p-6">
-            <p className="text-sm leading-relaxed">{health.narrative}</p>
-          </motion.div>
-
           {/* Urgent Fix */}
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1 }} className="rounded-xl border border-primary/20 bg-primary/5 p-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">🚨 Most Urgent Fix</p>
-            <p className="text-sm font-medium">{health.urgent_fix}</p>
-            <CopyButton text={health.urgent_fix} className="mt-2" />
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5 }} className="cb-card-glow p-6">
+            <p className="t-section text-destructive mb-2">🚨 MOST URGENT FIX</p>
+            <p className="text-sm font-medium leading-relaxed">{health.urgent_fix}</p>
+            <CopyButton text={health.urgent_fix} className="mt-3" />
           </motion.div>
         </div>
       )}
