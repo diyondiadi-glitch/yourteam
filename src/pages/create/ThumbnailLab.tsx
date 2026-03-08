@@ -148,8 +148,8 @@ export default function ThumbnailLab() {
                       {i === 0 && <Trophy className="h-4 w-4 text-primary" />}
                     </div>
 
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full inline-block ${getEmotionBadge(c.emotion)}`}>
-                      {c.emotion}
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full inline-block ${getEmotionBadge(typeof c.emotion === 'string' ? c.emotion : '')}`}>
+                      {typeof c.emotion === 'string' ? c.emotion : JSON.stringify(c.emotion)}
                     </span>
 
                     {/* CTR Score */}
