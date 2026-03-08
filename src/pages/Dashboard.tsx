@@ -227,16 +227,37 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Quick Actions */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Quick Actions</h2>
-          <div className="space-y-2">
-            {["Analyze Latest Video", "Get Next Idea", "Check Competitors"].map((action) => (
-              <Button key={action} variant="ghost-muted" className="w-full justify-between rounded-lg h-10 text-sm">
-                {action}
-                <ArrowRight className="h-3.5 w-3.5" />
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Trend Widget */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Radio className="h-4 w-4 text-primary" /> Trending Now
+              </h2>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/strategy/trend-radar")}>
+                View All <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
-            ))}
+            </div>
+            <TrendWidget />
+          </div>
+
+          {/* Quick Actions */}
+          <div>
+            <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
+            <div className="space-y-2">
+              {[
+                { label: "Analyze Latest Video", url: "/diagnose/video-death" },
+                { label: "Get Next Idea", url: "/strategy/next-video" },
+                { label: "Check Competitors", url: "/strategy/competitor-spy" },
+                { label: "Get Roasted 🔥", url: "/diagnose/roast" },
+              ].map((action) => (
+                <Button key={action.label} variant="ghost-muted" className="w-full justify-between rounded-lg h-10 text-sm" onClick={() => navigate(action.url)}>
+                  {action.label}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
