@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { TrendingUp, Eye, Upload, Star, Zap, ArrowRight, LogOut, Radio } from "lucide-react";
+import { TrendingUp, Eye, Upload, Star, Zap, ArrowRight, LogOut } from "lucide-react";
+import DemoBanner from "@/components/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
