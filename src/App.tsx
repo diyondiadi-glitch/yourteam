@@ -24,6 +24,8 @@ import IdeaValidator from "./pages/strategy/IdeaValidator";
 import ViralWindow from "./pages/strategy/ViralWindow";
 import TopicGraveyard from "./pages/strategy/TopicGraveyard";
 import CompetitorSpy from "./pages/strategy/CompetitorSpy";
+import SeriesPlanner from "./pages/strategy/SeriesPlanner";
+import CollabScriptGenerator from "./pages/strategy/CollabScriptGenerator";
 
 // Create
 import VideoMachine from "./pages/create/VideoMachine";
@@ -38,6 +40,9 @@ import ShortsVsLongs from "./pages/analyze/ShortsVsLongs";
 import OutlierSpotter from "./pages/analyze/OutlierSpotter";
 import DeadVideoRevival from "./pages/analyze/DeadVideoRevival";
 import CommentMiner from "./pages/analyze/CommentMiner";
+import TitleGraveyardPage from "./pages/analyze/TitleGraveyard";
+import BestUploadTime from "./pages/analyze/BestUploadTime";
+import EngagementDrop from "./pages/analyze/EngagementDrop";
 
 // Grow
 import RecreateBest from "./pages/grow/RecreateBest";
@@ -79,6 +84,8 @@ const App = () => (
           <Route path="/strategy/viral-window" element={withLayout(<ViralWindow />)} />
           <Route path="/strategy/topic-graveyard" element={withLayout(<TopicGraveyard />)} />
           <Route path="/strategy/competitor-spy" element={withLayout(<CompetitorSpy />)} />
+          <Route path="/strategy/series-planner" element={withLayout(<SeriesPlanner />)} />
+          <Route path="/strategy/collab-script" element={withLayout(<CollabScriptGenerator />)} />
 
           {/* CREATE */}
           <Route path="/create/video-machine" element={withLayout(<VideoMachine />)} />
@@ -93,6 +100,9 @@ const App = () => (
           <Route path="/analyze/outliers" element={withLayout(<OutlierSpotter />)} />
           <Route path="/analyze/revival" element={withLayout(<DeadVideoRevival />)} />
           <Route path="/analyze/comments" element={withLayout(<CommentMiner />)} />
+          <Route path="/analyze/title-graveyard" element={withLayout(<TitleGraveyardPage />)} />
+          <Route path="/analyze/best-upload-time" element={withLayout(<BestUploadTime />)} />
+          <Route path="/analyze/engagement-drop" element={withLayout(<EngagementDrop />)} />
 
           {/* GROW */}
           <Route path="/grow/recreate-best" element={withLayout(<RecreateBest />)} />

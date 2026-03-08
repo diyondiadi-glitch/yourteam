@@ -7,8 +7,8 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
+        redirectTo: "https://yourteam.lovable.app/auth/callback",
         scopes: YT_SCOPES,
-        redirectTo: window.location.origin + "/auth/callback",
       },
     });
     if (error) {

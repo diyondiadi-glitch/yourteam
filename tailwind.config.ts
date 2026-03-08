@@ -68,6 +68,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        "cat-diagnose": "hsl(var(--cat-diagnose))",
+        "cat-strategy": "hsl(var(--cat-strategy))",
+        "cat-create": "hsl(var(--cat-create))",
+        "cat-analyze": "hsl(var(--cat-analyze))",
+        "cat-grow": "hsl(var(--cat-grow))",
       },
       borderRadius: {
         lg: "var(--radius)",

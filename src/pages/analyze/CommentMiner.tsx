@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, Lightbulb, Heart, HelpCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { MessageSquare, Lightbulb, Heart, HelpCircle, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { isAuthenticated } from "@/lib/youtube-auth";
-import { getMyChannel, getRecentVideos, getVideoComments, getChannelContext } from "@/lib/youtube-api";
+import { getMyChannel, getRecentVideos, getVideoComments, getChannelContext, type VideoData } from "@/lib/youtube-api";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 
 interface CommentAnalysis {
@@ -20,31 +21,52 @@ interface CommentAnalysis {
 
 export default function CommentMiner() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [videos, setVideos] = useState<VideoData[]>([]);
+  const [selectedVideo, setSelectedVideo] = useState<string>("all");
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loadStep, setLoadStep] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
   const [analysis, setAnalysis] = useState<CommentAnalysis | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
-    loadData();
+    loadVideos();
   }, []);
 
-  async function loadData() {
+  async function loadVideos() {
+    try {
+      const ch = await getMyChannel();
+      const vids = await getRecentVideos(ch.id, 10);
+      setVideos(vids);
+      setInitialLoading(false);
+    } catch (err) {
+      console.error(err);
+      setInitialLoading(false);
+    }
+  }
+
+  async function mineComments() {
+    setLoading(true);
+    setAnalysis(null);
     try {
       setLoadStep(0);
       const ch = await getMyChannel();
-      const vids = await getRecentVideos(ch.id, 10);
+      const vidsToMine = selectedVideo === "all"
+        ? videos
+        : videos.filter(v => v.id === selectedVideo);
       setLoadStep(1);
 
-      const commentPromises = vids.map(v => getVideoComments(v.id, 30));
+      const commentPromises = vidsToMine.map(v => getVideoComments(v.id, 30));
       const commentArrays = await Promise.all(commentPromises);
       const allComments = commentArrays.flat();
+      setCommentCount(allComments.length);
       setLoadStep(2);
 
-      const context = getChannelContext(ch, vids);
+      const context = getChannelContext(ch, vidsToMine);
       const result = await callGroq(
         "Analyse all these YouTube comments. Extract: 1) Top 10 video ideas explicitly or implicitly requested by viewers with demand score 1-100, 2) Top questions that reveal content gaps, 3) Emotional themes — what are viewers feeling, 4) Superfan comments that show deep loyalty, 5) Complaints that reveal what confused viewers. Format as JSON with fields: video_ideas (array of {idea, demand_score, quote}), questions (array of {question, quote}), emotional_themes (array of {theme, sentiment}), superfans (array of {name, comment}), complaints (array of {complaint, quote}).",
-        `${context}\n\nCOMMENTS FROM LAST 10 VIDEOS (${allComments.length} total):\n${allComments.slice(0, 200).join("\n---\n")}`
+        `${context}\n\nCOMMENTS (${allComments.length} total):\n${allComments.slice(0, 200).join("\n---\n")}`
       );
 
       const parsed = parseJsonFromResponse(result);
@@ -56,21 +78,53 @@ export default function CommentMiner() {
     }
   }
 
-  if (loading) {
+  if (initialLoading) {
     return (
-      <FeaturePage emoji="⛏️" title="Mining for Gold" description="Extracting video ideas your audience is begging for">
-        <LoadingSteps steps={["Fetching your videos...", "Mining comments...", "Extracting golden insights..."]} currentStep={loadStep} />
+      <FeaturePage emoji="⛏️" title="Comment Gold Miner" description="Extract video ideas your audience is begging for">
+        <LoadingSteps steps={["Loading your videos..."]} currentStep={0} />
       </FeaturePage>
     );
   }
 
   return (
-    <FeaturePage emoji="⛏️" title="Mining for Gold" description="Extracting video ideas your audience is begging for">
+    <FeaturePage emoji="⛏️" title="Comment Gold Miner" description="Extract video ideas your audience is begging for">
+      {/* Video Selector */}
+      <div className="max-w-xl mx-auto mb-8 space-y-4">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="text-sm font-semibold mb-3">Select which video to mine:</p>
+          <Select value={selectedVideo} onValueChange={setSelectedVideo}>
+            <SelectTrigger className="h-12 rounded-xl">
+              <SelectValue placeholder="Select a video..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All recent videos ({videos.length})</SelectItem>
+              {videos.map(v => (
+                <SelectItem key={v.id} value={v.id}>{v.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button className="w-full mt-3 h-12 rounded-xl text-lg" onClick={mineComments} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Mining {commentCount > 0 ? `${commentCount} comments` : "comments"}...
+              </>
+            ) : (
+              <>⛏️ Start Mining</>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {loading && (
+        <LoadingSteps steps={["Fetching video data...", "Mining comments...", "Extracting golden insights..."]} currentStep={loadStep} />
+      )}
+
       {analysis && (
         <div className="space-y-8">
           {/* Video Ideas */}
           <section>
-            <h2 className="font-semibold text-lg flex items-center gap-2 mb-4">
+            <h2 className="section-header flex items-center gap-2 mb-4">
               <Lightbulb className="h-5 w-5 text-primary" /> Video Ideas From Your Audience
             </h2>
             <div className="grid md:grid-cols-2 gap-4">
@@ -108,7 +162,7 @@ export default function CommentMiner() {
           {/* Questions */}
           {analysis.questions?.length > 0 && (
             <section>
-              <h2 className="font-semibold text-lg flex items-center gap-2 mb-4">
+              <h2 className="section-header flex items-center gap-2 mb-4">
                 <HelpCircle className="h-5 w-5 text-warning" /> Content Gap Questions
               </h2>
               <div className="space-y-3">
@@ -128,7 +182,7 @@ export default function CommentMiner() {
           {/* Superfans */}
           {analysis.superfans?.length > 0 && (
             <section>
-              <h2 className="font-semibold text-lg flex items-center gap-2 mb-4">
+              <h2 className="section-header flex items-center gap-2 mb-4">
                 <Heart className="h-5 w-5 text-destructive" /> Superfan Highlights
               </h2>
               <div className="grid md:grid-cols-2 gap-3">
@@ -145,7 +199,7 @@ export default function CommentMiner() {
           {/* Complaints */}
           {analysis.complaints?.length > 0 && (
             <section>
-              <h2 className="font-semibold text-lg flex items-center gap-2 mb-4">
+              <h2 className="section-header flex items-center gap-2 mb-4">
                 <AlertCircle className="h-5 w-5 text-destructive" /> Viewer Complaints
               </h2>
               <div className="space-y-3">

@@ -42,6 +42,13 @@
 
     --radius: 0.75rem;
 
+    /* Category accent colors */
+    --cat-diagnose: 0 72% 51%;
+    --cat-strategy: 217 91% 60%;
+    --cat-create: 271 81% 56%;
+    --cat-analyze: 142 69% 58%;
+    --cat-grow: 45 93% 47%;
+
     --sidebar-background: 240 5% 5%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 48 96% 53%;
@@ -63,6 +70,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-size: 15px;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -112,6 +120,21 @@
 
   .section-label {
     @apply text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground px-3 py-2;
+  }
+
+  .feature-title {
+    font-size: 48px;
+    @apply font-bold tracking-tight;
+  }
+
+  .section-header {
+    font-size: 20px;
+    @apply font-semibold;
+  }
+
+  .data-number {
+    font-size: 32px;
+    @apply font-bold text-primary;
   }
 }
 
