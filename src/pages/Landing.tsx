@@ -98,6 +98,45 @@ export default function Landing() {
         </motion.div>
       </section>
 
+      {/* How It Works */}
+      <section id="how-it-works" className="relative z-10 py-32 px-6">
+        <div className="max-w-5xl mx-auto">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-3xl sm:text-4xl font-bold text-center mb-4"
+          >
+            How It Works
+          </motion.h2>
+          <p className="text-muted-foreground text-center mb-16 max-w-xl mx-auto">
+            From zero to actionable strategy in under 2 minutes
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { step: "01", title: "Connect Your Channel", desc: "Link your YouTube channel in one click. We only need read access — your data stays safe.", emoji: "🔗" },
+              { step: "02", title: "AI Analyses Instantly", desc: "Our AI engine scans your videos, analytics, and audience patterns in seconds.", emoji: "🧠" },
+              { step: "03", title: "Get Clear Decisions", desc: "Receive exactly what to post next, what to fix, and how to grow — no guesswork.", emoji: "🎯" },
+            ].map((item, i) => (
+              <motion.div
+                key={item.step}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.15 }}
+                className="relative rounded-xl border border-border bg-card p-8 text-center card-glow"
+              >
+                <span className="text-4xl mb-4 block">{item.emoji}</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-primary mb-3 block">Step {item.step}</span>
+                <h3 className="font-semibold text-lg mb-2">{item.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="relative z-10 pb-32 px-6">
         <div className="max-w-6xl mx-auto">
