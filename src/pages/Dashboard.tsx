@@ -11,39 +11,11 @@ import {
   formatCount,
   timeAgo,
   calcChannelScore,
+  isDemoMode,
   type ChannelData,
   type VideoData,
 } from "@/lib/youtube-api";
-import { generateVerdict } from "@/lib/groq-api";
-import { fetchTrends, TrendCard, type TrendItem } from "@/pages/strategy/TrendRadar";
-
-function TrendWidget() {
-  const [trends, setTrends] = useState<TrendItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchTrends()
-      .then(data => setTrends(data.trends.filter(t => t.urgency?.toLowerCase() !== "dying").slice(0, 3)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
-      </div>
-    );
-  }
-
-  if (trends.length === 0) return <p className="text-sm text-muted-foreground">No trends detected yet.</p>;
-
-  return (
-    <div className="space-y-2">
-      {trends.map((t, i) => <TrendCard key={i} trend={t} compact />)}
-    </div>
-  );
-}
+import { generateVerdict, callGroq } from "@/lib/groq-api";
 
 const stagger = {
   container: { transition: { staggerChildren: 0.08 } },
@@ -57,6 +29,9 @@ export default function Dashboard() {
   const [verdict, setVerdict] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
+  const [quickWin, setQuickWin] = useState("");
+  const [quickWinOpen, setQuickWinOpen] = useState(false);
+  const [quickWinLoading, setQuickWinLoading] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -71,20 +46,14 @@ export default function Dashboard() {
       setLoading(true);
       const ch = await getMyChannel();
       setChannel(ch);
-
       const vids = await getRecentVideos(ch.id, 6);
       setVideos(vids);
 
-      // Generate AI verdict
       try {
         const v = await generateVerdict({
           title: ch.title,
           subscriberCount: ch.subscriberCount,
-          recentVideos: vids.map((v) => ({
-            title: v.title,
-            viewCount: v.viewCount,
-            publishedAt: v.publishedAt,
-          })),
+          recentVideos: vids.map((v) => ({ title: v.title, viewCount: v.viewCount, publishedAt: v.publishedAt })),
         });
         setVerdict(v);
       } catch {
@@ -97,8 +66,28 @@ export default function Dashboard() {
     }
   }
 
+  async function getQuickWin() {
+    setQuickWinLoading(true);
+    setQuickWinOpen(true);
+    try {
+      const ch = await getMyChannel();
+      const vids = await getRecentVideos(ch.id, 10);
+      const avgViews = vids.reduce((s, v) => s + v.viewCount, 0) / vids.length;
+      const res = await callGroq(
+        "You are a YouTube growth coach. Give the single highest-impact action this creator can take TODAY. One paragraph, be specific.",
+        `Channel: ${ch.title}, ${formatCount(ch.subscriberCount)} subs, avg ${Math.round(avgViews)} views. Recent: ${vids.slice(0, 3).map(v => `"${v.title}" (${v.viewCount} views)`).join(", ")}. What's their #1 quick win right now?`
+      );
+      setQuickWin(res);
+    } catch {
+      setQuickWin("Focus on your next upload — consistency is the highest-impact action you can take.");
+    } finally {
+      setQuickWinLoading(false);
+    }
+  }
+
   function handleDisconnect() {
     clearToken();
+    localStorage.removeItem("demo_mode");
     navigate("/", { replace: true });
   }
 
@@ -106,19 +95,14 @@ export default function Dashboard() {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <p className="text-lg text-destructive">{error}</p>
-        <Button variant="ghost-muted" onClick={handleDisconnect}>
-          Disconnect & Try Again
-        </Button>
+        <Button variant="ghost-muted" onClick={handleDisconnect}>Disconnect & Try Again</Button>
       </div>
     );
   }
 
-  const avgViews = videos.length > 0
-    ? Math.round(videos.reduce((s, v) => s + v.viewCount, 0) / videos.length)
-    : 0;
+  const avgViews = videos.length > 0 ? Math.round(videos.reduce((s, v) => s + v.viewCount, 0) / videos.length) : 0;
   const channelScore = channel ? calcChannelScore(videos, channel.subscriberCount) : 0;
 
-  // Upload streak: count consecutive weeks with at least one upload
   const uploadStreak = (() => {
     if (videos.length === 0) return "0 weeks";
     const now = Date.now();
@@ -126,11 +110,7 @@ export default function Dashboard() {
     for (let w = 0; w < 8; w++) {
       const weekStart = now - (w + 1) * 7 * 86400000;
       const weekEnd = now - w * 7 * 86400000;
-      const hasUpload = videos.some((v) => {
-        const t = new Date(v.publishedAt).getTime();
-        return t >= weekStart && t < weekEnd;
-      });
-      if (hasUpload) weeks++;
+      if (videos.some((v) => { const t = new Date(v.publishedAt).getTime(); return t >= weekStart && t < weekEnd; })) weeks++;
       else break;
     }
     return `${weeks} week${weeks !== 1 ? "s" : ""}`;
@@ -144,32 +124,27 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 relative">
+      {/* Demo Mode Banner */}
+      {isDemoMode() && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm flex items-center justify-between">
+          <span>🎮 <strong>Demo Mode</strong> — Using sample data. Connect your real YouTube channel for personalised insights.</span>
+          <Button size="sm" variant="outline" onClick={() => navigate("/")}>Connect Channel</Button>
+        </div>
+      )}
+
       {/* Channel Header */}
       {loading ? (
         <div className="flex items-center gap-4">
           <Skeleton className="h-14 w-14 rounded-full" />
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-4 w-32" />
-          </div>
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-32" /></div>
         </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4"
-        >
-          <img
-            src={channel?.avatar}
-            alt={channel?.title}
-            className="h-14 w-14 rounded-full object-cover border-2 border-primary/30"
-          />
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
+          <img src={channel?.avatar} alt={channel?.title} className="h-14 w-14 rounded-full object-cover border-2 border-primary/30" />
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{channel?.title}</h1>
-            <p className="text-sm text-muted-foreground">
-              {formatCount(channel?.subscriberCount || 0)} subscribers · {formatCount(channel?.viewCount || 0)} total views
-            </p>
+            <p className="text-sm text-muted-foreground">{formatCount(channel?.subscriberCount || 0)} subscribers · {formatCount(channel?.viewCount || 0)} total views</p>
           </div>
           <Button variant="ghost-muted" size="sm" onClick={handleDisconnect}>
             <LogOut className="h-4 w-4 mr-1" /> Disconnect
@@ -178,15 +153,8 @@ export default function Dashboard() {
       )}
 
       {/* Verdict Card */}
-      {loading ? (
-        <Skeleton className="h-28 w-full rounded-xl" />
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          className="rounded-xl border border-primary/20 bg-primary/5 p-6"
-        >
+      {loading ? <Skeleton className="h-28 w-full rounded-xl" /> : (
+        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border border-primary/20 bg-primary/5 p-6">
           <div className="flex items-start gap-3">
             <Zap className="h-6 w-6 text-primary mt-0.5 shrink-0" />
             <div>
@@ -199,18 +167,9 @@ export default function Dashboard() {
 
       {/* Metrics */}
       {loading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
-          ))}
-        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
       ) : (
-        <motion.div
-          variants={stagger.container}
-          initial="initial"
-          animate="animate"
-          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-        >
+        <motion.div variants={stagger.container} initial="initial" animate="animate" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {metrics.map((m) => (
             <motion.div key={m.label} variants={stagger.item} className="metric-card">
               <div className="flex items-center justify-between mb-3">
@@ -224,30 +183,30 @@ export default function Dashboard() {
       )}
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Recent Videos */}
+        {/* Recent Videos — now clickable */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-lg font-semibold">Recent Videos</h2>
           {loading ? (
-            <div className="grid sm:grid-cols-2 gap-3">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-20 rounded-xl" />
-              ))}
-            </div>
+            <div className="grid sm:grid-cols-2 gap-3">{[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
               {videos.map((v) => (
-                <div key={v.id} className="rounded-xl border border-border bg-card p-4 card-glow flex gap-3 items-start">
-                  <img
-                    src={v.thumbnail}
-                    alt={v.title}
-                    className="h-12 w-20 rounded-lg object-cover shrink-0"
-                  />
+                <div
+                  key={v.id}
+                  className="rounded-xl border border-border bg-card p-4 card-glow flex gap-3 items-start cursor-pointer hover:border-primary/30 transition-colors"
+                  onClick={() => navigate(`/video?id=${v.id}`)}
+                >
+                  <img src={v.thumbnail} alt={v.title} className="h-12 w-20 rounded-lg object-cover shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{v.title}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground">{formatCount(v.viewCount)} views</span>
                       <span className="text-xs text-muted-foreground">·</span>
                       <span className="text-xs text-muted-foreground">{timeAgo(v.publishedAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className={`h-1.5 w-1.5 rounded-full ${v.viewCount >= avgViews ? "bg-success" : "bg-destructive"}`} />
+                      <span className="text-[10px] text-muted-foreground">{v.viewCount >= avgViews ? "Above avg" : "Below avg"}</span>
                     </div>
                   </div>
                 </div>
@@ -258,28 +217,15 @@ export default function Dashboard() {
 
         {/* Right column */}
         <div className="space-y-6">
-          {/* Trend Widget */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Radio className="h-4 w-4 text-primary" /> Trending Now
-              </h2>
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/strategy/trend-radar")}>
-                View All <ArrowRight className="ml-1 h-3 w-3" />
-              </Button>
-            </div>
-            <TrendWidget />
-          </div>
-
-          {/* Quick Actions */}
           <div>
             <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
             <div className="space-y-2">
               {[
                 { label: "Analyze Latest Video", url: "/diagnose/video-death" },
                 { label: "Get Next Idea", url: "/strategy/next-video" },
-                { label: "Check Competitors", url: "/strategy/competitor-spy" },
+                { label: "Channel Health Check", url: "/diagnose/health-check" },
                 { label: "Get Roasted 🔥", url: "/diagnose/roast" },
+                { label: "Talk to Max (AI Coach)", url: "/coach" },
               ].map((action) => (
                 <Button key={action.label} variant="ghost-muted" className="w-full justify-between rounded-lg h-10 text-sm" onClick={() => navigate(action.url)}>
                   {action.label}
@@ -290,6 +236,34 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Quick Win FAB */}
+      <button
+        onClick={getQuickWin}
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:shadow-primary/30 transition-all hover:scale-105 z-40"
+        title="Get Quick Win"
+      >
+        <Zap className="h-6 w-6" />
+      </button>
+
+      {/* Quick Win Popup */}
+      {quickWinOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="fixed bottom-24 right-6 w-80 rounded-xl border border-primary/20 bg-card p-5 shadow-xl z-40"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase text-primary">⚡ Quick Win</p>
+            <button onClick={() => setQuickWinOpen(false)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+          </div>
+          {quickWinLoading ? (
+            <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-primary animate-pulse" /><span className="text-sm text-muted-foreground">Thinking...</span></div>
+          ) : (
+            <p className="text-sm leading-relaxed">{quickWin}</p>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 }
