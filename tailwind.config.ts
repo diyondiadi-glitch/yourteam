@@ -42,6 +42,10 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
@@ -73,6 +77,7 @@ export default {
         "cat-create": "hsl(var(--cat-create))",
         "cat-analyze": "hsl(var(--cat-analyze))",
         "cat-grow": "hsl(var(--cat-grow))",
+        "cat-coach": "hsl(var(--cat-coach))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -93,7 +98,7 @@ export default {
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         "fade-in-up": {
-          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "0%": { opacity: "0", transform: "translateY(16px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         "scale-in": {
@@ -110,23 +115,28 @@ export default {
         },
         "pulse-glow": {
           "0%, 100%": { boxShadow: "0 0 20px hsla(48, 96%, 53%, 0.1)" },
-          "50%": { boxShadow: "0 0 40px hsla(48, 96%, 53%, 0.2)" },
+          "50%": { boxShadow: "0 0 40px hsla(48, 96%, 53%, 0.25)" },
         },
         float: {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-6px)" },
+        },
+        "slide-badge": {
+          "0%": { opacity: "0", transform: "translateX(-10px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.5s ease-out forwards",
-        "fade-in-up": "fade-in-up 0.6s ease-out forwards",
+        "fade-in-up": "fade-in-up 0.4s ease-out forwards",
         "scale-in": "scale-in 0.3s ease-out forwards",
         "slide-in-left": "slide-in-left 0.3s ease-out",
         shimmer: "shimmer 2s infinite linear",
         "pulse-glow": "pulse-glow 3s ease-in-out infinite",
         float: "float 3s ease-in-out infinite",
+        "slide-badge": "slide-badge 0.3s ease-out forwards",
       },
     },
   },

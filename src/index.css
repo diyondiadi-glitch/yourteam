@@ -6,13 +6,15 @@
 
 @layer base {
   :root {
-    --background: 240 6% 4%;
+    --background: 240 7% 3%;
+    --background-section: 240 6% 7%;
+    --background-card: 240 5% 9%;
     --foreground: 0 0% 100%;
 
-    --card: 240 5% 7%;
+    --card: 240 5% 9%;
     --card-foreground: 0 0% 100%;
 
-    --popover: 240 5% 7%;
+    --popover: 240 5% 9%;
     --popover-foreground: 0 0% 100%;
 
     --primary: 48 96% 53%;
@@ -21,8 +23,8 @@
     --secondary: 240 4% 13%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 240 4% 13%;
-    --muted-foreground: 240 4% 46%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
 
     --accent: 240 4% 13%;
     --accent-foreground: 0 0% 100%;
@@ -36,26 +38,37 @@
     --warning: 48 96% 53%;
     --warning-foreground: 240 6% 4%;
 
-    --border: 240 4% 13%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 240 4% 12%;
     --input: 240 4% 13%;
     --ring: 48 96% 53%;
 
     --radius: 0.75rem;
 
-    /* Category accent colors */
-    --cat-diagnose: 0 72% 51%;
-    --cat-strategy: 217 91% 60%;
-    --cat-create: 271 81% 56%;
-    --cat-analyze: 142 69% 58%;
-    --cat-grow: 45 93% 47%;
+    /* Semantic color meanings */
+    --color-win: 142 69% 58%;
+    --color-loss: 0 72% 51%;
+    --color-ai: 217 91% 60%;
+    --color-opportunity: 271 81% 56%;
+    --color-warning: 33 95% 55%;
 
-    --sidebar-background: 240 5% 5%;
+    /* Category accent colors */
+    --cat-diagnose: 0 72% 60%;
+    --cat-strategy: 271 81% 65%;
+    --cat-create: 217 91% 60%;
+    --cat-analyze: 142 69% 58%;
+    --cat-grow: 45 93% 55%;
+    --cat-coach: 187 92% 50%;
+
+    --sidebar-background: 240 6% 5%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 48 96% 53%;
     --sidebar-primary-foreground: 240 6% 4%;
     --sidebar-accent: 240 4% 10%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 4% 13%;
+    --sidebar-border: 240 4% 10%;
     --sidebar-ring: 48 96% 53%;
 
     --glow-primary: 0 0 20px hsla(48, 96%, 53%, 0.15);
@@ -70,7 +83,8 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-size: 15px;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -79,22 +93,91 @@
 }
 
 @layer components {
-  .card-glow {
-    @apply transition-shadow duration-300;
+  /* ── Card system ─────────────────────────────────────── */
+  .cb-card {
+    @apply rounded-xl p-5 transition-all duration-200;
+    background: hsl(var(--background-card));
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
   }
-  .card-glow:hover {
-    box-shadow: var(--glow-primary);
+  .cb-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }
 
+  .cb-card-glow {
+    @apply cb-card;
+    box-shadow: 0 0 20px hsla(48, 96%, 53%, 0.12), 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  .cb-section {
+    @apply rounded-xl p-6;
+    background: hsl(var(--background-section));
+  }
+
+  /* ── Typography scale ────────────────────────────────── */
+  .t-page {
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
+
+  .t-section {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .t-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+  }
+
+  .t-body {
+    font-size: 14px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.6;
+  }
+
+  .t-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Data numbers ────────────────────────────────────── */
+  .data-number {
+    font-size: 32px;
+    font-weight: 800;
+    color: hsl(var(--primary));
+  }
+
+  .data-number-xl {
+    font-size: 48px;
+    font-weight: 800;
+  }
+
+  .data-number-win {
+    font-size: 32px;
+    font-weight: 800;
+    color: hsl(var(--success));
+  }
+
+  .data-number-loss {
+    font-size: 20px;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* ── Gradient & glow effects ─────────────────────────── */
   .gradient-text {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-yellow-300;
-  }
-
-  .gradient-border {
-    @apply border border-border;
-    background: linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
-                linear-gradient(135deg, hsl(var(--primary) / 0.3), transparent 60%) border-box;
-    border: 1px solid transparent;
   }
 
   .sidebar-gradient {
@@ -114,28 +197,50 @@
     );
   }
 
-  .metric-card {
-    @apply rounded-xl border border-border bg-card p-5 card-glow;
+  /* ── Legacy compat ───────────────────────────────────── */
+  .card-glow { @apply transition-shadow duration-300; }
+  .card-glow:hover { box-shadow: var(--glow-primary); }
+
+  .feature-title { @apply t-page; }
+  .section-header { font-size: 18px; @apply font-semibold; }
+  .section-label { @apply t-label px-3 py-2; color: hsl(var(--muted-foreground)); }
+  .metric-card { @apply cb-card; }
+
+  /* ── Winner badge ────────────────────────────────────── */
+  .winner-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider;
+    background: hsl(var(--success) / 0.15);
+    color: hsl(var(--success));
+    border: 1px solid hsl(var(--success) / 0.3);
   }
 
-  .section-label {
-    @apply text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground px-3 py-2;
+  /* ── Score colors ────────────────────────────────────── */
+  .score-good { color: hsl(var(--success)); }
+  .score-warn { color: hsl(var(--warning)); }
+  .score-bad { color: hsl(var(--destructive)); }
+
+  /* ── Demo banner ─────────────────────────────────────── */
+  .demo-banner {
+    background: linear-gradient(135deg, hsl(48, 96%, 53%) 0%, hsl(33, 95%, 55%) 100%);
+    color: #000;
+    height: 44px;
   }
 
-  .feature-title {
-    font-size: 48px;
-    @apply font-bold tracking-tight;
+  /* ── Animated bars ───────────────────────────────────── */
+  .bar-animate {
+    animation: bar-grow 0.6s ease-out forwards;
   }
 
-  .section-header {
-    font-size: 20px;
-    @apply font-semibold;
+  @keyframes bar-grow {
+    from { width: 0; }
   }
 
-  .data-number {
-    font-size: 32px;
-    @apply font-bold text-primary;
+  /* ── Count up animation helper ───────────────────────── */
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
+  .animate-count { animation: count-up 0.8s ease-out forwards; }
 }
 
 @layer utilities {
