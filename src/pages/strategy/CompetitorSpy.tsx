@@ -136,7 +136,7 @@ export default function CompetitorSpy() {
           {/* Channel comparison — VS style */}
           <motion.div variants={stagger.item} className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-center">
             <div className="cb-card p-6 text-center" style={{ borderColor: "hsl(var(--success) / 0.2)", boxShadow: "0 0 20px hsl(var(--success) / 0.06)" }}>
-              <img src={myChannel?.avatar} className="h-16 w-16 rounded-full mx-auto mb-3 ring-2" style={{ ringColor: "hsl(var(--success) / 0.4)" }} />
+              <img src={myChannel?.avatar} className="h-16 w-16 rounded-full mx-auto mb-3 ring-2 ring-success/40" />
               <p className="t-card-title mb-1">{myChannel?.title}</p>
               <p className="data-number" style={{ color: "hsl(var(--success))" }}>{formatCount(myChannel?.subscriberCount || 0)}</p>
               <p className="t-label text-muted-foreground mt-1">subscribers</p>
