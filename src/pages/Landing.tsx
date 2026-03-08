@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Zap, Brain, TrendingUp, MessageSquare, Palette, BarChart3, ArrowRight } from "lucide-react";
