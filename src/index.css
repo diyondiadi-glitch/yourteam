@@ -156,11 +156,18 @@
   .cb-card {
     @apply rounded-xl p-5 transition-all duration-200;
     background: hsl(var(--background-card));
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .dark .cb-card {
+    border-color: rgba(255,255,255,0.06);
     box-shadow: 0 1px 3px rgba(0,0,0,0.4);
   }
   .cb-card:hover {
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  }
+  .dark .cb-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }
 
