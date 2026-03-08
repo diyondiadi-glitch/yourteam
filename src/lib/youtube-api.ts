@@ -1,18 +1,20 @@
 import { getToken } from "./youtube-auth";
 
-const YT_API_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
 
 async function ytFetch(endpoint: string, params: Record<string, string> = {}) {
   const token = getToken();
+  if (!token) throw new Error("Not authenticated");
+  
   const url = new URL(`${YT_BASE}/${endpoint}`);
-  url.searchParams.set("key", YT_API_KEY);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(url.toString(), { headers });
+  const res = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
   if (!res.ok) throw new Error(`YouTube API error: ${res.status}`);
   return res.json();
 }
