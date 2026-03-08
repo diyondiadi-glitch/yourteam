@@ -2,15 +2,24 @@ import { supabase } from "./supabase";
 
 const YT_SCOPES = "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly";
 
-export async function signInWithGoogle() {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      scopes: YT_SCOPES,
-      redirectTo: window.location.origin + "/auth/callback",
-    },
-  });
-  if (error) throw error;
+export async function signInWithGoogle(): Promise<{ error: string | null }> {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        scopes: YT_SCOPES,
+        redirectTo: window.location.origin + "/auth/callback",
+      },
+    });
+    if (error) {
+      console.error("OAuth error:", error);
+      return { error: "Google sign-in is not configured yet. Please try Demo Mode to explore the app!" };
+    }
+    return { error: null };
+  } catch (err: any) {
+    console.error("Sign-in error:", err);
+    return { error: "Could not connect to Google. Please try Demo Mode to explore the app!" };
+  }
 }
 
 export function storeToken(token: string) {
