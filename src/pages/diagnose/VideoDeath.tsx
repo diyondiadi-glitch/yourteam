@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { isAuthenticated } from "@/lib/youtube-auth";
 import { getMyChannel, getRecentVideos, getChannelContext, formatCount, type VideoData, type ChannelData } from "@/lib/youtube-api";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
+import { getSelectedVideo, clearSelectedVideo } from "@/lib/video-context";
 
 interface Diagnosis {
   reason: string;
@@ -41,6 +42,20 @@ export default function VideoDeath() {
       setChannel(ch);
       const vids = await getRecentVideos(ch.id, 20);
       setVideos(vids);
+
+      // Check for pre-selected video from video context
+      const preSelected = getSelectedVideo();
+      if (preSelected) {
+        clearSelectedVideo();
+        const match = vids.find(v => v.id === preSelected.id);
+        if (match) {
+          setSelectedVideo(match.id);
+          // Auto-run diagnosis after a tick
+          setTimeout(() => {
+            setSelectedVideo(match.id);
+          }, 100);
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
