@@ -43,6 +43,7 @@ import CommentMiner from "./pages/analyze/CommentMiner";
 import TitleGraveyardPage from "./pages/analyze/TitleGraveyard";
 import BestUploadTime from "./pages/analyze/BestUploadTime";
 import EngagementDrop from "./pages/analyze/EngagementDrop";
+import RetentionPredictor from "./pages/analyze/RetentionPredictor";
 
 // Grow
 import RecreateBest from "./pages/grow/RecreateBest";
@@ -50,6 +51,7 @@ import CollabMatcher from "./pages/grow/CollabMatcher";
 import AudiencePersona from "./pages/grow/AudiencePersona";
 import SponsorReadiness from "./pages/grow/SponsorReadiness";
 import BurnoutRecovery from "./pages/grow/BurnoutRecovery";
+import LaunchPlan from "./pages/grow/LaunchPlan";
 
 // Coach
 import AICoach from "./pages/coach/AICoach";
@@ -103,6 +105,7 @@ const App = () => (
           <Route path="/analyze/title-graveyard" element={withLayout(<TitleGraveyardPage />)} />
           <Route path="/analyze/best-upload-time" element={withLayout(<BestUploadTime />)} />
           <Route path="/analyze/engagement-drop" element={withLayout(<EngagementDrop />)} />
+          <Route path="/analyze/retention-predictor" element={withLayout(<RetentionPredictor />)} />
 
           {/* GROW */}
           <Route path="/grow/recreate-best" element={withLayout(<RecreateBest />)} />
@@ -110,6 +113,7 @@ const App = () => (
           <Route path="/grow/persona" element={withLayout(<AudiencePersona />)} />
           <Route path="/grow/sponsor" element={withLayout(<SponsorReadiness />)} />
           <Route path="/grow/burnout" element={withLayout(<BurnoutRecovery />)} />
+          <Route path="/grow/launch-plan" element={withLayout(<LaunchPlan />)} />
 
           {/* AI COACH */}
           <Route path="/coach" element={withLayout(<AICoach />)} />
