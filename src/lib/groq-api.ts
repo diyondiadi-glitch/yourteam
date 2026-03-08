@@ -1,95 +1,9 @@
-const GROQ_API_KEY = "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";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Re-export from ai-service for backward compatibility
+import { callAI, streamAI, parseJsonFromAI } from "./ai-service";
 
-export async function callGroq(systemPrompt: string, userPrompt: string): Promise<string> {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 4000,
-      temperature: 0.7,
-    }),
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`AI is temporarily unavailable. Please try again in a moment. (${res.status})`);
-  }
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "";
-}
-
-export async function streamGroq(
-  systemPrompt: string,
-  userPrompt: string,
-  onChunk: (text: string) => void
-): Promise<string> {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 4000,
-      temperature: 0.7,
-      stream: true,
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`AI is temporarily unavailable. Please try again in a moment.`);
-  }
-
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let full = "";
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let newlineIdx: number;
-    while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-      let line = buffer.slice(0, newlineIdx);
-      buffer = buffer.slice(newlineIdx + 1);
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (!line.startsWith("data: ")) continue;
-      const jsonStr = line.slice(6).trim();
-      if (jsonStr === "[DONE]") break;
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) {
-          full += content;
-          onChunk(content);
-        }
-      } catch { /* partial */ }
-    }
-  }
-  return full;
-}
-
-export function parseJsonFromResponse(text: string): any {
-  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || text.match(/(\[[\s\S]*\])/) || text.match(/(\{[\s\S]*\})/);
-  if (jsonMatch) {
-    try { return JSON.parse(jsonMatch[1]); } catch { /* fallback */ }
-  }
-  try { return JSON.parse(text); } catch { return null; }
-}
+export const callGroq = callAI;
+export const streamGroq = streamAI;
+export const parseJsonFromResponse = parseJsonFromAI;
 
 export async function generateVerdict(channelData: {
   title: string;
@@ -100,7 +14,7 @@ export async function generateVerdict(channelData: {
     .map((v) => `"${v.title}" (${v.viewCount} views, ${v.publishedAt})`)
     .join("\n");
 
-  return callGroq(
+  return callAI(
     "You are a YouTube growth strategist. Given channel data, provide ONE specific, actionable priority for today in 1-2 sentences. Be specific about what to do and why based on the data. No fluff.",
     `Channel: ${channelData.title}\nSubscribers: ${channelData.subscriberCount}\n\nRecent videos:\n${videoSummary}\n\nWhat is this creator's #1 priority today?`
   );
