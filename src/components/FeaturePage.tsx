@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { motion } from "framer-motion";
 import DemoBanner from "./DemoBanner";
+import ConnectChannelCTA from "./ConnectChannelCTA";
 
 interface FeaturePageProps {
   emoji: string;
@@ -8,11 +9,12 @@ interface FeaturePageProps {
   description: string;
   children: ReactNode;
   accentColor?: string;
+  showConnectCTA?: boolean;
 }
 
-export default function FeaturePage({ emoji, title, description, children, accentColor }: FeaturePageProps) {
+export default function FeaturePage({ emoji, title, description, children, accentColor, showConnectCTA = true }: FeaturePageProps) {
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
+    <div className="p-6 md:p-8 max-w-[920px] mx-auto">
       <DemoBanner />
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -31,6 +33,7 @@ export default function FeaturePage({ emoji, title, description, children, accen
       >
         {children}
       </motion.div>
+      {showConnectCTA && <ConnectChannelCTA featureName={title} />}
     </div>
   );
 }
