@@ -8,65 +8,40 @@ import Dashboard from "./pages/Dashboard";
 import AppLayout from "./components/AppLayout";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
-import VideoDetail from "./pages/VideoDetail";
 
 // Diagnose
 import VideoDeath from "./pages/diagnose/VideoDeath";
 import ChannelRoast from "./pages/diagnose/ChannelRoast";
 import HealthCheck from "./pages/diagnose/HealthCheck";
-import PlateauBreaker from "./pages/diagnose/PlateauBreaker";
-import AlgorithmMap from "./pages/diagnose/AlgorithmMap";
-import GrowthPredictor from "./pages/diagnose/GrowthPredictor";
-
-// Strategy
-import NextVideo from "./pages/strategy/NextVideo";
-import TrendRadar from "./pages/strategy/TrendRadar";
-import IdeaValidator from "./pages/strategy/IdeaValidator";
-import ViralWindow from "./pages/strategy/ViralWindow";
-import TopicGraveyard from "./pages/strategy/TopicGraveyard";
-import CompetitorSpy from "./pages/strategy/CompetitorSpy";
-import SeriesPlanner from "./pages/strategy/SeriesPlanner";
-import CollabScriptGenerator from "./pages/strategy/CollabScriptGenerator";
+import GrowthIntelligence from "./pages/diagnose/GrowthIntelligence";
+import AlgorithmIntelligence from "./pages/diagnose/AlgorithmIntelligence";
 
 // Create
 import VideoMachine from "./pages/create/VideoMachine";
-import ThumbnailLab from "./pages/create/ThumbnailLab";
-import ThumbnailPsychology from "./pages/create/ThumbnailPsychology";
 import HookScore from "./pages/create/HookScore";
 import TitleTester from "./pages/create/TitleTester";
-import TitlePsychology from "./pages/create/TitlePsychology";
+import ThumbnailStudio from "./pages/create/ThumbnailStudio";
 import ScriptImprover from "./pages/create/ScriptImprover";
-
-// Analyze
-import WarRoom from "./pages/analyze/WarRoom";
-import ShortsVsLongs from "./pages/analyze/ShortsVsLongs";
-import OutlierSpotter from "./pages/analyze/OutlierSpotter";
-import DeadVideoRevival from "./pages/analyze/DeadVideoRevival";
-import CommentMiner from "./pages/analyze/CommentMiner";
-import TitleGraveyardPage from "./pages/analyze/TitleGraveyard";
-import BestUploadTime from "./pages/analyze/BestUploadTime";
-import EngagementDrop from "./pages/analyze/EngagementDrop";
-import RetentionPredictor from "./pages/analyze/RetentionPredictor";
-import VideoAnalyser from "./pages/analyze/VideoAnalyser";
-import SubscriberConverter from "./pages/analyze/SubscriberConverter";
-import SentimentTimeline from "./pages/analyze/SentimentTimeline";
-import ViralMoments from "./pages/analyze/ViralMoments";
-import NicheAuthority from "./pages/analyze/NicheAuthority";
+import Teleprompter from "./pages/create/Teleprompter";
 
 // Grow
-import RecreateBest from "./pages/grow/RecreateBest";
-import CollabMatcher from "./pages/grow/CollabMatcher";
-import AudiencePersona from "./pages/grow/AudiencePersona";
+import LightningLab from "./pages/grow/LightningLab";
+import CompetitorSpy from "./pages/strategy/CompetitorSpy";
+import NicheGapRadar from "./pages/grow/NicheGapRadar";
+import IdeaValidator from "./pages/strategy/IdeaValidator";
+import ViralWindow from "./pages/strategy/ViralWindow";
+import HiddenGold from "./pages/grow/HiddenGold";
 import SponsorReadiness from "./pages/grow/SponsorReadiness";
-import BurnoutRecovery from "./pages/grow/BurnoutRecovery";
+import CollabMatcher from "./pages/grow/CollabMatcher";
 import BurnoutPredictor from "./pages/grow/BurnoutPredictor";
-import LaunchPlan from "./pages/grow/LaunchPlan";
 
 // Coach
 import AICoach from "./pages/coach/AICoach";
+import CommentIntelligence from "./pages/grow/CommentIntelligence";
+import AudienceIntelligence from "./pages/grow/AudienceIntelligence";
+import LaunchPlan from "./pages/grow/LaunchPlan";
 
 const queryClient = new QueryClient();
-
 const withLayout = (page: React.ReactNode) => <AppLayout>{page}</AppLayout>;
 
 const App = () => (
@@ -79,62 +54,38 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={withLayout(<Dashboard />)} />
-          <Route path="/video" element={withLayout(<VideoDetail />)} />
 
           {/* DIAGNOSE */}
           <Route path="/diagnose/video-death" element={withLayout(<VideoDeath />)} />
           <Route path="/diagnose/roast" element={withLayout(<ChannelRoast />)} />
           <Route path="/diagnose/health-check" element={withLayout(<HealthCheck />)} />
-          <Route path="/diagnose/plateau" element={withLayout(<PlateauBreaker />)} />
-          <Route path="/diagnose/algorithm-map" element={withLayout(<AlgorithmMap />)} />
-          <Route path="/diagnose/growth-predictor" element={withLayout(<GrowthPredictor />)} />
-
-          {/* STRATEGY */}
-          <Route path="/strategy/next-video" element={withLayout(<NextVideo />)} />
-          <Route path="/strategy/trend-radar" element={withLayout(<TrendRadar />)} />
-          <Route path="/strategy/idea-validator" element={withLayout(<IdeaValidator />)} />
-          <Route path="/strategy/viral-window" element={withLayout(<ViralWindow />)} />
-          <Route path="/strategy/topic-graveyard" element={withLayout(<TopicGraveyard />)} />
-          <Route path="/strategy/competitor-spy" element={withLayout(<CompetitorSpy />)} />
-          <Route path="/strategy/series-planner" element={withLayout(<SeriesPlanner />)} />
-          <Route path="/strategy/collab-script" element={withLayout(<CollabScriptGenerator />)} />
+          <Route path="/diagnose/growth-intelligence" element={withLayout(<GrowthIntelligence />)} />
+          <Route path="/diagnose/algorithm-intelligence" element={withLayout(<AlgorithmIntelligence />)} />
 
           {/* CREATE */}
           <Route path="/create/video-machine" element={withLayout(<VideoMachine />)} />
-          <Route path="/create/thumbnail-lab" element={withLayout(<ThumbnailLab />)} />
-          <Route path="/create/thumbnail-psychology" element={withLayout(<ThumbnailPsychology />)} />
           <Route path="/create/hook-score" element={withLayout(<HookScore />)} />
           <Route path="/create/title-tester" element={withLayout(<TitleTester />)} />
-          <Route path="/create/title-psychology" element={withLayout(<TitlePsychology />)} />
+          <Route path="/create/thumbnail-studio" element={withLayout(<ThumbnailStudio />)} />
           <Route path="/create/script-improver" element={withLayout(<ScriptImprover />)} />
-
-          {/* ANALYZE */}
-          <Route path="/analyze/war-room" element={withLayout(<WarRoom />)} />
-          <Route path="/analyze/video-analyser" element={withLayout(<VideoAnalyser />)} />
-          <Route path="/analyze/shorts-vs-longs" element={withLayout(<ShortsVsLongs />)} />
-          <Route path="/analyze/outliers" element={withLayout(<OutlierSpotter />)} />
-          <Route path="/analyze/revival" element={withLayout(<DeadVideoRevival />)} />
-          <Route path="/analyze/comments" element={withLayout(<CommentMiner />)} />
-          <Route path="/analyze/best-upload-time" element={withLayout(<BestUploadTime />)} />
-          <Route path="/analyze/subscriber-converter" element={withLayout(<SubscriberConverter />)} />
-          <Route path="/analyze/sentiment-timeline" element={withLayout(<SentimentTimeline />)} />
-          <Route path="/analyze/viral-moments" element={withLayout(<ViralMoments />)} />
-          <Route path="/analyze/niche-authority" element={withLayout(<NicheAuthority />)} />
-          <Route path="/analyze/retention-predictor" element={withLayout(<RetentionPredictor />)} />
-          <Route path="/analyze/engagement-drop" element={withLayout(<EngagementDrop />)} />
-          <Route path="/analyze/title-graveyard" element={withLayout(<TitleGraveyardPage />)} />
+          <Route path="/create/teleprompter" element={withLayout(<Teleprompter />)} />
 
           {/* GROW */}
-          <Route path="/grow/recreate-best" element={withLayout(<RecreateBest />)} />
-          <Route path="/grow/collab-matcher" element={withLayout(<CollabMatcher />)} />
-          <Route path="/grow/persona" element={withLayout(<AudiencePersona />)} />
+          <Route path="/grow/lightning-lab" element={withLayout(<LightningLab />)} />
+          <Route path="/strategy/competitor-spy" element={withLayout(<CompetitorSpy />)} />
+          <Route path="/grow/niche-gap" element={withLayout(<NicheGapRadar />)} />
+          <Route path="/strategy/idea-validator" element={withLayout(<IdeaValidator />)} />
+          <Route path="/strategy/viral-window" element={withLayout(<ViralWindow />)} />
+          <Route path="/grow/hidden-gold" element={withLayout(<HiddenGold />)} />
           <Route path="/grow/sponsor" element={withLayout(<SponsorReadiness />)} />
-          <Route path="/grow/burnout" element={withLayout(<BurnoutRecovery />)} />
+          <Route path="/grow/collab-matcher" element={withLayout(<CollabMatcher />)} />
           <Route path="/grow/content-battery" element={withLayout(<BurnoutPredictor />)} />
-          <Route path="/grow/launch-plan" element={withLayout(<LaunchPlan />)} />
 
-          {/* AI COACH */}
+          {/* COACH */}
           <Route path="/coach" element={withLayout(<AICoach />)} />
+          <Route path="/grow/comment-intelligence" element={withLayout(<CommentIntelligence />)} />
+          <Route path="/grow/audience-intelligence" element={withLayout(<AudienceIntelligence />)} />
+          <Route path="/grow/launch-plan" element={withLayout(<LaunchPlan />)} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
