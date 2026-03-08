@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Zap, Brain, TrendingUp, MessageSquare, Palette, BarChart3, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getToken, signInWithGoogle } from "@/lib/youtube-auth";
 import { enableDemoMode, disableDemoMode } from "@/lib/youtube-api";
+import { useToast } from "@/hooks/use-toast";
 
 const features = [
   { icon: Brain, title: "AI Strategy Engine", desc: "Know exactly what to post next based on your real data" },
@@ -22,16 +23,21 @@ const roles = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
-    // Clear demo mode when visiting landing page
     disableDemoMode();
-    // Only auto-redirect if user has a real YouTube token
     if (getToken()) navigate("/dashboard", { replace: true });
   }, []);
 
-  function handleConnect() {
-    signInWithGoogle();
+  async function handleConnect() {
+    setConnecting(true);
+    const result = await signInWithGoogle();
+    if (result.error) {
+      toast({ title: "Connection Issue", description: result.error, variant: "destructive" });
+    }
+    setConnecting(false);
   }
 
   return (
@@ -67,9 +73,10 @@ export default function Landing() {
               size="lg"
               className="h-14 px-8 text-lg rounded-xl"
               onClick={handleConnect}
+              disabled={connecting}
             >
-              Connect YouTube Channel
-              <ArrowRight className="ml-2 h-5 w-5" />
+              {connecting ? "Connecting..." : "Connect YouTube Channel"}
+              {!connecting && <ArrowRight className="ml-2 h-5 w-5" />}
             </Button>
             <Button
               variant="ghost-muted"
