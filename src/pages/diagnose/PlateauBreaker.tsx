@@ -77,7 +77,7 @@ export default function PlateauBreaker() {
             <h2 className="font-semibold text-lg flex items-center gap-2 mb-4">
               <Calendar className="h-5 w-5 text-primary" /> 30-Day Breakout Plan
             </h2>
-            <p className="text-sm text-muted-foreground mb-4">Schedule: {analysis.posting_schedule}</p>
+            <p className="text-sm text-muted-foreground mb-4">Schedule: {typeof analysis.posting_schedule === 'string' ? analysis.posting_schedule : JSON.stringify(analysis.posting_schedule)}</p>
 
             <div className="grid md:grid-cols-2 gap-4">
               {analysis.weeks?.map((week, i) => (
