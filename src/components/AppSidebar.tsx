@@ -1,14 +1,15 @@
+import { motion } from "framer-motion";
 import {
-  Home, Target, PenTool, BarChart3, Bot,
+  Home, Bot,
   AlertTriangle, HeartPulse, TrendingDown, Map,
   Lightbulb, CheckCircle, Clock, Skull, Eye,
-  Timer, Type, Image, Sparkles,
+  Timer, Type, Sparkles,
   Activity, GitCompare, Star, Ghost,
   MessageSquare, Copy, Users, BadgeDollarSign, Battery,
   Wand2, Flame, Palette, Radio, Handshake,
-  CalendarClock, TrendingUp,
-  ListOrdered, PenLine, Settings, Zap, Youtube,
-  Gauge, CalendarDays,
+  TrendingUp,
+  ListOrdered, PenLine, Zap, Youtube,
+  Gauge, CalendarDays, ChevronDown, Sun, Moon, Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -27,6 +28,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+const MAX_VISIBLE = 5;
+
 const nav = [
   { section: null, color: "", cssVar: "", items: [
     { title: "Dashboard", url: "/dashboard", icon: Home },
@@ -39,43 +42,40 @@ const nav = [
     { title: "Algorithm DNA", url: "/diagnose/algorithm-map", icon: Map },
   ]},
   { section: "STRATEGY", color: "cat-strategy", cssVar: "--cat-strategy", items: [
-    { title: "What Should I Make Next?", url: "/strategy/next-video", icon: Lightbulb },
-    { title: "Trend News Feed", url: "/strategy/trend-radar", icon: Radio },
+    { title: "What To Make Next", url: "/strategy/next-video", icon: Lightbulb },
+    { title: "Trend Radar", url: "/strategy/trend-radar", icon: Radio },
     { title: "Idea Validator", url: "/strategy/idea-validator", icon: CheckCircle },
-    { title: "Viral Window Predictor", url: "/strategy/viral-window", icon: Clock },
-    { title: "Topic Graveyard", url: "/strategy/topic-graveyard", icon: Skull },
+    { title: "Viral Window", url: "/strategy/viral-window", icon: Clock },
     { title: "Competitor Spy", url: "/strategy/competitor-spy", icon: Eye },
+    { title: "Topic Graveyard", url: "/strategy/topic-graveyard", icon: Skull },
     { title: "Series Planner", url: "/strategy/series-planner", icon: ListOrdered },
-    { title: "Collab Script Generator", url: "/strategy/collab-script", icon: PenLine },
+    { title: "Collab Script", url: "/strategy/collab-script", icon: PenLine },
   ]},
   { section: "CREATE", color: "cat-create", cssVar: "--cat-create", items: [
-    { title: "60-Min Video Machine", url: "/create/video-machine", icon: Timer },
-    { title: "Thumbnail A/B Lab", url: "/create/thumbnail-lab", icon: Palette },
+    { title: "Video Machine", url: "/create/video-machine", icon: Timer },
+    { title: "Thumbnail Lab", url: "/create/thumbnail-lab", icon: Palette },
     { title: "Hook Score", url: "/create/hook-score", icon: Sparkles },
-    { title: "Title Split Tester", url: "/create/title-tester", icon: Type },
+    { title: "Title Tester", url: "/create/title-tester", icon: Type },
     { title: "Script Improver", url: "/create/script-improver", icon: Wand2 },
   ]},
   { section: "ANALYZE", color: "cat-analyze", cssVar: "--cat-analyze", items: [
-    { title: "First Hour War Room", url: "/analyze/war-room", icon: Activity },
-    { title: "Shorts vs Longs Report", url: "/analyze/shorts-vs-longs", icon: GitCompare },
-    { title: "Outlier Video Spotter", url: "/analyze/outliers", icon: Star },
-    { title: "Dead Video Revival", url: "/analyze/revival", icon: Ghost },
-    { title: "Comment Gold Miner", url: "/analyze/comments", icon: MessageSquare },
-    { title: "Title Graveyard", url: "/analyze/title-graveyard", icon: Skull },
-    { title: "Best Upload Time", url: "/analyze/best-upload-time", icon: CalendarClock },
-    { title: "Engagement Drop", url: "/analyze/engagement-drop", icon: TrendingDown },
+    { title: "War Room", url: "/analyze/war-room", icon: Activity },
+    { title: "Format Battle", url: "/analyze/shorts-vs-longs", icon: GitCompare },
+    { title: "Outlier Spotter", url: "/analyze/outliers", icon: Star },
+    { title: "Dead Revival", url: "/analyze/revival", icon: Ghost },
+    { title: "Comment Miner", url: "/analyze/comments", icon: MessageSquare },
     { title: "Retention Predictor", url: "/analyze/retention-predictor", icon: Gauge },
   ]},
   { section: "GROW", color: "cat-grow", cssVar: "--cat-grow", items: [
-    { title: "Recreate Your Best", url: "/grow/recreate-best", icon: Copy },
+    { title: "Recreate Best", url: "/grow/recreate-best", icon: Copy },
     { title: "Collab Matcher", url: "/grow/collab-matcher", icon: Handshake },
-    { title: "Audience Persona", url: "/grow/persona", icon: Users },
-    { title: "Sponsor Readiness", url: "/grow/sponsor", icon: BadgeDollarSign },
-    { title: "Burnout Recovery", url: "/grow/burnout", icon: Battery },
-    { title: "30-Day Launch Plan", url: "/grow/launch-plan", icon: CalendarDays },
+    { title: "Persona Builder", url: "/grow/persona", icon: Users },
+    { title: "Sponsor Score", url: "/grow/sponsor", icon: BadgeDollarSign },
+    { title: "30-Day Plan", url: "/grow/launch-plan", icon: CalendarDays },
+    { title: "Burnout Mode", url: "/grow/burnout", icon: Battery },
   ]},
   { section: "AI COACH", color: "cat-coach", cssVar: "--cat-coach", items: [
-    { title: "Personal AI Coach", url: "/coach", icon: Bot },
+    { title: "Max AI Coach", url: "/coach", icon: Bot },
   ]},
 ];
 
@@ -85,108 +85,163 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [avatar, setAvatar] = useState<string | null>(null);
-  const [channelName, setChannelName] = useState<string>("");
+  const [channelName, setChannelName] = useState("");
+  const [subCount, setSubCount] = useState("");
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [theme, setTheme] = useState(() => localStorage.getItem("cb_theme") || "dark");
   const isConnected = !!getToken();
 
   useEffect(() => {
+    document.documentElement.classList.toggle("light", theme === "light");
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("cb_theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
     if (getToken() || isDemoMode()) {
-      import("@/lib/youtube-api").then(({ getMyChannel }) => {
+      import("@/lib/youtube-api").then(({ getMyChannel, formatCount }) => {
         getMyChannel().then(ch => {
           setAvatar(ch.avatar);
           setChannelName(ch.title);
+          setSubCount(formatCount(ch.subscriberCount));
         }).catch(() => {});
       });
     }
   }, []);
 
+  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
+
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50 sidebar-gradient">
-      <SidebarContent className="scrollbar-thin py-3">
+      <SidebarContent className="scrollbar-thin py-3 flex flex-col h-full">
         {/* Logo */}
         <div className={`px-4 pb-3 mb-1 border-b border-border/30 ${collapsed ? "text-center" : ""}`}>
           <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary shrink-0" />
+            <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+              <Zap className="h-4 w-4 text-primary" />
+            </div>
             {!collapsed && (
               <div>
                 <span className="text-sm font-bold text-foreground">CreatorBrain</span>
-                <span className="text-[10px] text-muted-foreground ml-1.5">v2.0</span>
+                <span className="text-[9px] text-muted-foreground ml-1.5 font-medium">v2.0</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Avatar */}
-        {avatar && (
+        {/* Creator avatar */}
+        {(avatar || isDemoMode()) && (
           <div className={`px-4 py-3 mb-1 flex items-center gap-3 border-b border-border/30 ${collapsed ? "justify-center" : ""}`}>
-            <img src={avatar} alt={channelName} className="h-8 w-8 rounded-full object-cover ring-2 ring-primary/30" />
+            {avatar ? (
+              <img src={avatar} alt={channelName} className="h-9 w-9 rounded-full object-cover ring-2 ring-primary/30 shrink-0" />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 text-xs font-bold text-primary">AC</div>
+            )}
             {!collapsed && (
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{channelName}</p>
+                <p className="text-sm font-semibold truncate">{channelName || "Alex Creates"}</p>
+                {subCount && <p className="text-[11px] text-muted-foreground">{subCount} subs</p>}
                 {isDemoMode() && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-warning">Demo Mode</span>
+                  <span className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{
+                    background: "hsl(var(--warning) / 0.15)",
+                    color: "hsl(var(--warning))"
+                  }}>Demo</span>
                 )}
               </div>
             )}
           </div>
         )}
 
-        {nav.map((group, gi) => {
-          const sectionActive = group.items.some(i => location.pathname === i.url);
-          return (
-            <SidebarGroup key={gi} className={gi > 0 ? "mt-1" : ""}>
-              {group.section && (
-                <SidebarGroupLabel
-                  className="t-label px-4 py-2"
-                  style={{ color: `hsl(var(${group.cssVar || "--muted-foreground"}))` }}
-                >
-                  {collapsed ? group.section.charAt(0) : group.section}
-                </SidebarGroupLabel>
-              )}
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {group.items.map((item) => {
-                    const active = location.pathname === item.url;
-                    const catColor = group.cssVar || "--primary";
-                    return (
-                      <SidebarMenuItem key={item.url}>
-                        <SidebarMenuButton asChild>
-                          <NavLink
-                            to={item.url}
-                            end
-                            className={`text-[13px] transition-all duration-150 rounded-lg px-3 py-2 relative group ${
-                              active
-                                ? "text-foreground font-medium"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                            activeClassName="text-foreground font-medium"
-                            style={active ? {
-                              backgroundColor: `hsl(var(${catColor}) / 0.08)`,
-                            } : undefined}
-                          >
-                            {active && (
-                              <span
-                                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-                                style={{
-                                  backgroundColor: `hsl(var(${catColor}))`,
-                                  boxShadow: `0 0 8px hsl(var(${catColor}) / 0.6)`,
-                                }}
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          {nav.map((group, gi) => {
+            const sectionActive = group.items.some(i => location.pathname === i.url);
+            const showAll = expanded[gi] || group.items.length <= MAX_VISIBLE;
+            const visibleItems = showAll ? group.items : group.items.slice(0, MAX_VISIBLE);
+            const hasMore = group.items.length > MAX_VISIBLE;
+
+            return (
+              <SidebarGroup key={gi} className={gi > 0 ? "mt-0.5" : ""}>
+                {group.section && (
+                  <SidebarGroupLabel
+                    className="t-label px-4 py-2 text-[10px]"
+                    style={{ color: `hsl(var(${group.cssVar || "--muted-foreground"}))` }}
+                  >
+                    {collapsed ? group.section.charAt(0) : group.section}
+                  </SidebarGroupLabel>
+                )}
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {visibleItems.map((item) => {
+                      const active = location.pathname === item.url;
+                      const catColor = group.cssVar || "--primary";
+                      return (
+                        <SidebarMenuItem key={item.url}>
+                          <SidebarMenuButton asChild>
+                            <NavLink
+                              to={item.url}
+                              end
+                              className={`text-[13px] transition-all duration-150 rounded-lg px-3 py-2 relative group ${
+                                active ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                              }`}
+                              activeClassName="text-foreground font-medium"
+                              style={active ? { backgroundColor: `hsl(var(${catColor}) / 0.08)` } : undefined}
+                            >
+                              {active && (
+                                <span
+                                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                                  style={{
+                                    backgroundColor: `hsl(var(${catColor}))`,
+                                    boxShadow: `0 0 8px hsl(var(${catColor}) / 0.6)`,
+                                  }}
+                                />
+                              )}
+                              <item.icon
+                                className="mr-2.5 h-4 w-4 shrink-0 transition-colors"
+                                style={active ? { color: `hsl(var(${catColor}))` } : undefined}
                               />
-                            )}
-                            <item.icon className="mr-2.5 h-4 w-4 shrink-0 transition-colors" style={active ? { color: `hsl(var(${catColor}))` } : undefined} />
-                            {!collapsed && <span className="truncate">{item.title}</span>}
-                          </NavLink>
-                        </SidebarMenuButton>
+                              {!collapsed && <span className="truncate">{item.title}</span>}
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                    {hasMore && !collapsed && (
+                      <SidebarMenuItem>
+                        <button
+                          onClick={() => setExpanded(p => ({ ...p, [gi]: !p[gi] }))}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+                        >
+                          <ChevronDown className={`h-3 w-3 transition-transform ${expanded[gi] ? "rotate-180" : ""}`} />
+                          {expanded[gi] ? "Show less" : `${group.items.length - MAX_VISIBLE} more`}
+                        </button>
                       </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          );
-        })}
+                    )}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            );
+          })}
+        </div>
 
         {/* Bottom section */}
-        <div className="mt-auto pt-3 px-3 border-t border-border/30 space-y-1">
+        <div className="mt-auto pt-3 px-3 border-t border-border/30 space-y-1.5">
+          {!collapsed && (
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
+            >
+              <motion.div
+                key={theme}
+                initial={{ rotate: -180, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </motion.div>
+              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+            </button>
+          )}
           {!isConnected && !collapsed && (
             <button
               onClick={() => { localStorage.removeItem("demo_mode"); navigate("/"); }}
