@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Zap, Brain, TrendingUp, MessageSquare, Palette, BarChart3, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getGoogleOAuthURL, isAuthenticated } from "@/lib/youtube-auth";
 
 const features = [
   { icon: Brain, title: "AI Strategy Engine", desc: "Know exactly what to post next based on your real data" },
@@ -19,6 +21,14 @@ const roles = [
 
 export default function Landing() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated()) navigate("/dashboard", { replace: true });
+  }, []);
+
+  function handleConnect() {
+    window.location.href = getGoogleOAuthURL();
+  }
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -52,7 +62,7 @@ export default function Landing() {
               variant="hero"
               size="lg"
               className="h-14 px-8 text-lg rounded-xl"
-              onClick={() => navigate("/dashboard")}
+              onClick={handleConnect}
             >
               Connect YouTube Channel
               <ArrowRight className="ml-2 h-5 w-5" />
