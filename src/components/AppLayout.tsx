@@ -1,10 +1,25 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Menu } from "lucide-react";
 import AIStatusDot from "@/components/AIStatusDot";
+import { isAuthenticated } from "@/lib/youtube-auth";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      navigate("/", { replace: true });
+    } else {
+      setChecked(true);
+    }
+  }, [navigate]);
+
+  if (!checked) return null;
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
