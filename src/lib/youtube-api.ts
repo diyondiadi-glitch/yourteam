@@ -1,20 +1,21 @@
 import { getToken } from "./youtube-auth";
 
 const YT_BASE = "https://www.googleapis.com/youtube/v3";
+const YT_API_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
 
 async function ytFetch(endpoint: string, params: Record<string, string> = {}) {
   const token = getToken();
-  if (!token) throw new Error("Not authenticated");
-  
   const url = new URL(`${YT_BASE}/${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    url.searchParams.set("key", YT_API_KEY);
+  }
+
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) throw new Error(`YouTube API error: ${res.status}`);
   return res.json();
 }
@@ -58,7 +59,6 @@ export interface VideoData {
 }
 
 export async function getRecentVideos(channelId: string, maxResults = 6): Promise<VideoData[]> {
-  // Get upload playlist
   const chData = await ytFetch("channels", {
     part: "contentDetails",
     id: channelId,
@@ -66,7 +66,6 @@ export async function getRecentVideos(channelId: string, maxResults = 6): Promis
   const uploadPlaylistId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
   if (!uploadPlaylistId) return [];
 
-  // Get video IDs
   const plData = await ytFetch("playlistItems", {
     part: "snippet",
     playlistId: uploadPlaylistId,
@@ -75,7 +74,6 @@ export async function getRecentVideos(channelId: string, maxResults = 6): Promis
   const videoIds = plData.items?.map((item: any) => item.snippet.resourceId.videoId) || [];
   if (videoIds.length === 0) return [];
 
-  // Get video details
   const vidData = await ytFetch("videos", {
     part: "snippet,statistics",
     id: videoIds.join(","),
@@ -90,6 +88,60 @@ export async function getRecentVideos(channelId: string, maxResults = 6): Promis
     commentCount: Number(v.statistics.commentCount || 0),
     publishedAt: v.snippet.publishedAt,
   }));
+}
+
+export async function getVideoComments(videoId: string, maxResults = 50): Promise<string[]> {
+  try {
+    const data = await ytFetch("commentThreads", {
+      part: "snippet",
+      videoId,
+      maxResults: String(maxResults),
+      order: "relevance",
+    });
+    return data.items?.map((item: any) => item.snippet.topLevelComment.snippet.textDisplay) || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getChannelById(channelId: string): Promise<ChannelData | null> {
+  try {
+    const data = await ytFetch("channels", {
+      part: "snippet,statistics",
+      id: channelId,
+    });
+    const ch = data.items?.[0];
+    if (!ch) return null;
+    return {
+      id: ch.id,
+      title: ch.snippet.title,
+      avatar: ch.snippet.thumbnails?.default?.url || "",
+      subscriberCount: Number(ch.statistics.subscriberCount),
+      viewCount: Number(ch.statistics.viewCount),
+      videoCount: Number(ch.statistics.videoCount),
+      customUrl: ch.snippet.customUrl || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function searchChannel(query: string): Promise<string | null> {
+  try {
+    const data = await ytFetch("search", {
+      part: "snippet",
+      q: query,
+      type: "channel",
+      maxResults: "1",
+    });
+    return data.items?.[0]?.snippet?.channelId || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getChannelVideos(channelId: string, maxResults = 20): Promise<VideoData[]> {
+  return getRecentVideos(channelId, maxResults);
 }
 
 export function formatCount(n: number): string {
@@ -116,4 +168,22 @@ export function calcChannelScore(videos: VideoData[], subscriberCount: number): 
   const engagementScore = Math.min((avgEngagement / Math.max(avgViews, 1)) * 100, 1) * 30;
   const consistencyScore = Math.min(videos.length / 6, 1) * 30;
   return Math.round(viewRatio + engagementScore + consistencyScore);
+}
+
+export function getChannelContext(channel: ChannelData, videos: VideoData[]): string {
+  const avgViews = videos.length > 0
+    ? Math.round(videos.reduce((s, v) => s + v.viewCount, 0) / videos.length)
+    : 0;
+  const videoSummary = videos
+    .map(v => `"${v.title}" - ${v.viewCount} views, ${v.likeCount} likes, ${v.commentCount} comments, published ${v.publishedAt}`)
+    .join("\n");
+
+  return `Channel: ${channel.title}
+Subscribers: ${formatCount(channel.subscriberCount)}
+Total Views: ${formatCount(channel.viewCount)}
+Total Videos: ${channel.videoCount}
+Average Views per Video: ${formatCount(avgViews)}
+
+Recent Videos:
+${videoSummary}`;
 }
