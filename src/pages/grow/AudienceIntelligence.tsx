@@ -93,7 +93,7 @@ export default function AudienceIntelligence() {
             </div>
           )}
 
-          <ShareInsight title="Audience Intelligence" text={`Best format: ${data.best_format}\nPersona: ${data.persona?.name || "—"}`} />
+          <ShareInsight title="Audience Intelligence" value={data.best_format} subtitle={`Your ideal viewer: ${data.persona?.name || "—"}`} />
         </div>
       ) : <p className="text-muted-foreground text-center py-12">No data available</p>}
     </FeaturePage>

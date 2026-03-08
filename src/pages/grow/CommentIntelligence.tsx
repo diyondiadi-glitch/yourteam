@@ -133,7 +133,7 @@ export default function CommentIntelligence() {
         </div>
       </div>
 
-      {analysis && <ShareInsight title="Comment Intelligence" text={analysis.summary || "Comment analysis complete"} />}
+      {analysis && <ShareInsight title="Comment Intelligence" value={`${analysis.emotion_breakdown?.idea || 0} ideas found`} subtitle={analysis.summary} />}
     </FeaturePage>
   );
 }

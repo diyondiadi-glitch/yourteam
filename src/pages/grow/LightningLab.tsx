@@ -100,7 +100,7 @@ export default function LightningLab() {
             </div>
           )}
 
-          <ShareInsight title="Lightning Lab" text={`Formula: ${formula.title_formula}\nHook: ${formula.hook_style}\nTopic: ${formula.topic_angle}`} />
+          <ShareInsight title="Lightning Lab" value={formula.title_formula} subtitle={`Hook: ${formula.hook_style}`} />
         </div>
       )}
 

@@ -66,7 +66,7 @@ export default function NicheGapRadar() {
         })}
       </div>
 
-      {data.length > 0 && <ShareInsight title="Niche Gap Radar" text={`${data.length} unclaimed topics found.\nTop: ${data[0]?.topic} (${data[0]?.score}/100)`} />}
+      {data.length > 0 && <ShareInsight title="Niche Gap Radar" value={`${data.length} gaps`} subtitle={`Top: ${data[0]?.topic} — ${data[0]?.score}/100`} />}
     </FeaturePage>
   );
 }

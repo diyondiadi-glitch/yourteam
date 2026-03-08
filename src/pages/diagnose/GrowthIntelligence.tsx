@@ -83,7 +83,7 @@ export default function GrowthIntelligence() {
                   </div>
                 </div>
               )}
-              <ShareInsight title="Growth Intelligence" text={`Plateau type: ${plateauData.plateau_type}\n${plateauData.verdict}`} />
+              <ShareInsight title="Growth Intelligence" value={plateauData.plateau_type} subtitle={plateauData.verdict} />
             </>
           ) : (
             <p className="text-muted-foreground text-center py-12">No data available. Try refreshing.</p>

@@ -104,7 +104,7 @@ export default function HiddenGold() {
         </TabsContent>
       </Tabs>
 
-      {data && <ShareInsight title="Hidden Gold" text={`Found ${data.shorts?.length || 0} shorts opportunities, ${data.dead_revival?.length || 0} revival candidates, ${data.viral_moments?.length || 0} viral moments`} />}
+      {data && <ShareInsight title="Hidden Gold" value={`${(data.shorts?.length || 0) + (data.viral_moments?.length || 0)} moments`} subtitle={`${data.shorts?.length || 0} shorts • ${data.dead_revival?.length || 0} revivals • ${data.viral_moments?.length || 0} viral`} />}
     </FeaturePage>
   );
 }
