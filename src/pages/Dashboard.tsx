@@ -15,6 +15,35 @@ import {
   type VideoData,
 } from "@/lib/youtube-api";
 import { generateVerdict } from "@/lib/groq-api";
+import { fetchTrends, TrendCard, type TrendItem } from "@/pages/strategy/TrendRadar";
+
+function TrendWidget() {
+  const [trends, setTrends] = useState<TrendItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTrends()
+      .then(data => setTrends(data.trends.filter(t => t.urgency?.toLowerCase() !== "dying").slice(0, 3)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
+      </div>
+    );
+  }
+
+  if (trends.length === 0) return <p className="text-sm text-muted-foreground">No trends detected yet.</p>;
+
+  return (
+    <div className="space-y-2">
+      {trends.map((t, i) => <TrendCard key={i} trend={t} compact />)}
+    </div>
+  );
+}
 
 const stagger = {
   container: { transition: { staggerChildren: 0.08 } },
