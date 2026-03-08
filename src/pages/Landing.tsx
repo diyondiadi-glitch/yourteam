@@ -62,7 +62,7 @@ export default function Landing() {
               variant="hero"
               size="lg"
               className="h-14 px-8 text-lg rounded-xl"
-              onClick={() => navigate("/dashboard")}
+              onClick={handleConnect}
             >
               Connect YouTube Channel
               <ArrowRight className="ml-2 h-5 w-5" />
