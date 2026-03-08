@@ -72,9 +72,12 @@ export default function Landing() {
               variant="ghost-muted"
               size="lg"
               className="h-14 px-8 text-lg rounded-xl"
-              onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() => {
+                enableDemoMode();
+                navigate("/dashboard", { replace: true });
+              }}
             >
-              See how it works
+              🚀 Try Demo Mode
             </Button>
           </div>
         </motion.div>

@@ -27,5 +27,5 @@ export function clearToken() {
 }
 
 export function isAuthenticated(): boolean {
-  return !!getToken();
+  return !!getToken() || localStorage.getItem("demo_mode") === "true";
 }
