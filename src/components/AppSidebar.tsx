@@ -5,7 +5,7 @@ import {
   Timer, FileText, Type, Image, Sparkles,
   Activity, GitCompare, Star, Ghost,
   MessageSquare, Copy, Users, BadgeDollarSign, Battery,
-  Wand2,
+  Wand2, Flame, Palette, Radio, Handshake,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -27,12 +27,14 @@ const nav = [
   ]},
   { section: "🔍 DIAGNOSE", items: [
     { title: "Why Did My Video Die?", url: "/diagnose/video-death", icon: AlertTriangle },
+    { title: "Channel Roast Mode", url: "/diagnose/roast", icon: Flame },
     { title: "Channel Health Check", url: "/diagnose/health-check", icon: HeartPulse },
     { title: "Growth Plateau Breaker", url: "/diagnose/plateau", icon: TrendingDown },
     { title: "Algorithm Map", url: "/diagnose/algorithm-map", icon: Map },
   ]},
   { section: "🎯 STRATEGY", items: [
     { title: "What Should I Make Next?", url: "/strategy/next-video", icon: Lightbulb },
+    { title: "Trend News Feed", url: "/strategy/trend-radar", icon: Radio },
     { title: "Idea Validator", url: "/strategy/idea-validator", icon: CheckCircle },
     { title: "Viral Window Predictor", url: "/strategy/viral-window", icon: Clock },
     { title: "Topic Graveyard", url: "/strategy/topic-graveyard", icon: Skull },
@@ -40,6 +42,7 @@ const nav = [
   ]},
   { section: "✍️ CREATE", items: [
     { title: "60-Min Video Machine", url: "/create/video-machine", icon: Timer },
+    { title: "Thumbnail A/B Generator", url: "/create/thumbnail-lab", icon: Palette },
     { title: "Hook Score", url: "/create/hook-score", icon: Sparkles },
     { title: "Title Split Tester", url: "/create/title-tester", icon: Type },
     { title: "Thumbnail Advisor", url: "/create/thumbnail", icon: Image },
@@ -54,6 +57,7 @@ const nav = [
   ]},
   { section: "💰 GROW", items: [
     { title: "Recreate Your Best Video", url: "/grow/recreate-best", icon: Copy },
+    { title: "Collab Matcher", url: "/grow/collab-matcher", icon: Handshake },
     { title: "Audience Persona Builder", url: "/grow/persona", icon: Users },
     { title: "Sponsor Readiness Score", url: "/grow/sponsor", icon: BadgeDollarSign },
     { title: "Burnout Recovery Mode", url: "/grow/burnout", icon: Battery },
