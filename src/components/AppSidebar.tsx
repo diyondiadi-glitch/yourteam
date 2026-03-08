@@ -6,7 +6,7 @@ import {
   Activity, GitCompare, Star, Ghost,
   MessageSquare, Copy, Users, BadgeDollarSign, Battery,
   Wand2, Flame, Palette, Radio, Handshake,
-  Tombstone, CalendarClock, TrendingUp,
+  CalendarClock, TrendingUp,
   ListOrdered, PenLine,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
