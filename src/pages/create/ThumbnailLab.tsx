@@ -169,22 +169,12 @@ export default function ThumbnailLab() {
                     </div>
 
                     <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Background</p>
-                        <p className="text-xs">{c.background}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Focal Element</p>
-                        <p className="text-xs">{c.focal_element}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Why It Clicks</p>
-                        <p className="text-xs">{c.why_clicks}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Target Viewer</p>
-                        <p className="text-xs">{c.target_viewer}</p>
-                      </div>
+                      {["background", "focal_element", "why_clicks", "target_viewer"].map(field => (
+                        <div key={field}>
+                          <p className="text-xs font-semibold text-muted-foreground capitalize">{field.replace(/_/g, " ")}</p>
+                          <p className="text-xs">{typeof (c as any)[field] === 'string' ? (c as any)[field] : JSON.stringify((c as any)[field])}</p>
+                        </div>
+                      ))}
                     </div>
 
                     <Button
