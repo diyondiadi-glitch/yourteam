@@ -147,7 +147,7 @@ export default function CompetitorSpy() {
               </div>
             </div>
             <div className="cb-card p-6 text-center" style={{ borderColor: "hsl(var(--destructive) / 0.2)", boxShadow: "0 0 20px hsl(var(--destructive) / 0.06)" }}>
-              <img src={competitor.avatar} className="h-16 w-16 rounded-full mx-auto mb-3 ring-2" style={{ ringColor: "hsl(var(--destructive) / 0.4)" }} />
+              <img src={competitor.avatar} className="h-16 w-16 rounded-full mx-auto mb-3 ring-2 ring-destructive/40" />
               <p className="t-card-title mb-1">{competitor.title}</p>
               <p className="data-number" style={{ color: "hsl(var(--destructive))" }}>{formatCount(competitor.subscriberCount)}</p>
               <p className="t-label text-muted-foreground mt-1">subscribers</p>
