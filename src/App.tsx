@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import AppLayout from "./components/AppLayout";
 import VideoDeath from "./pages/diagnose/VideoDeath";
+import AuthCallback from "./pages/AuthCallback";
 import ComingSoon from "./components/ComingSoon";
 import NotFound from "./pages/NotFound";
 
