@@ -4,12 +4,16 @@ const SCOPES = [
   "https://www.googleapis.com/auth/yt-analytics.readonly",
 ].join(" ");
 
-const REDIRECT_URI = `${window.location.origin}/auth/callback`;
+export function getRedirectURI(): string {
+  return `${window.location.origin}/auth/callback`;
+}
 
 export function getGoogleOAuthURL(): string {
+  const redirectUri = getRedirectURI();
+  console.log("🔑 OAuth Redirect URI (add this to Google Cloud Console):", redirectUri);
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,
     response_type: "token",
     scope: SCOPES,
     access_type: "online",
