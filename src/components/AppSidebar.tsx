@@ -1,15 +1,16 @@
 import { motion } from "framer-motion";
 import {
   Home, Bot,
-  AlertTriangle, HeartPulse, TrendingDown, Map,
+  AlertTriangle, HeartPulse, TrendingDown, Map, CircleDot,
   Lightbulb, CheckCircle, Clock, Skull, Eye,
-  Timer, Type, Sparkles,
-  Activity, GitCompare, Star, Ghost,
+  Timer, Type, Sparkles, Brain,
+  Activity, GitCompare, Star, Ghost, Film,
   MessageSquare, Copy, Users, BadgeDollarSign, Battery,
   Wand2, Flame, Palette, Radio, Handshake,
-  TrendingUp,
+  TrendingUp, Zap as ZapIcon, Crown,
   ListOrdered, PenLine, Zap, Youtube,
-  Gauge, CalendarDays, ChevronDown, Sun, Moon, Settings,
+  Gauge, CalendarDays, ChevronDown, Sun, Moon,
+  BarChart3, Heart, BatteryCharging,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -17,15 +18,8 @@ import { getToken } from "@/lib/youtube-auth";
 import { isDemoMode } from "@/lib/youtube-api";
 import { useEffect, useState } from "react";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
+  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
 
 const MAX_VISIBLE = 5;
@@ -36,10 +30,11 @@ const nav = [
   ]},
   { section: "DIAGNOSE", color: "cat-diagnose", cssVar: "--cat-diagnose", items: [
     { title: "Why Did My Video Die?", url: "/diagnose/video-death", icon: AlertTriangle },
-    { title: "Channel Roast Mode", url: "/diagnose/roast", icon: Flame },
-    { title: "Channel Health Check", url: "/diagnose/health-check", icon: HeartPulse },
-    { title: "Growth Plateau Breaker", url: "/diagnose/plateau", icon: TrendingDown },
+    { title: "Channel Roast", url: "/diagnose/roast", icon: Flame },
+    { title: "Health Check", url: "/diagnose/health-check", icon: HeartPulse },
+    { title: "Beat The Plateau", url: "/diagnose/plateau", icon: TrendingDown },
     { title: "Algorithm DNA", url: "/diagnose/algorithm-map", icon: Map },
+    { title: "Growth Predictor", url: "/diagnose/growth-predictor", icon: CircleDot },
   ]},
   { section: "STRATEGY", color: "cat-strategy", cssVar: "--cat-strategy", items: [
     { title: "What To Make Next", url: "/strategy/next-video", icon: Lightbulb },
@@ -54,16 +49,24 @@ const nav = [
   { section: "CREATE", color: "cat-create", cssVar: "--cat-create", items: [
     { title: "Video Machine", url: "/create/video-machine", icon: Timer },
     { title: "Thumbnail Lab", url: "/create/thumbnail-lab", icon: Palette },
-    { title: "Hook Score", url: "/create/hook-score", icon: Sparkles },
-    { title: "Title Tester", url: "/create/title-tester", icon: Type },
-    { title: "Script Improver", url: "/create/script-improver", icon: Wand2 },
+    { title: "Thumbnail Psychology", url: "/create/thumbnail-psychology", icon: Brain },
+    { title: "Hook Analyser", url: "/create/hook-score", icon: Sparkles },
+    { title: "Title Battle", url: "/create/title-tester", icon: Type },
+    { title: "Title Psychology", url: "/create/title-psychology", icon: Wand2 },
+    { title: "Script Surgeon", url: "/create/script-improver", icon: PenLine },
   ]},
-  { section: "ANALYZE", color: "cat-analyze", cssVar: "--cat-analyze", items: [
+  { section: "ANALYSE", color: "cat-analyze", cssVar: "--cat-analyze", items: [
+    { title: "Video Analyser", url: "/analyze/video-analyser", icon: Film },
     { title: "War Room", url: "/analyze/war-room", icon: Activity },
     { title: "Format Battle", url: "/analyze/shorts-vs-longs", icon: GitCompare },
     { title: "Outlier Spotter", url: "/analyze/outliers", icon: Star },
     { title: "Dead Revival", url: "/analyze/revival", icon: Ghost },
     { title: "Comment Miner", url: "/analyze/comments", icon: MessageSquare },
+    { title: "Best Time to Post", url: "/analyze/best-upload-time", icon: CalendarDays },
+    { title: "Subscriber Converter", url: "/analyze/subscriber-converter", icon: BarChart3 },
+    { title: "Sentiment Timeline", url: "/analyze/sentiment-timeline", icon: Heart },
+    { title: "Viral Moments", url: "/analyze/viral-moments", icon: ZapIcon },
+    { title: "Niche Authority", url: "/analyze/niche-authority", icon: Crown },
     { title: "Retention Predictor", url: "/analyze/retention-predictor", icon: Gauge },
   ]},
   { section: "GROW", color: "cat-grow", cssVar: "--cat-grow", items: [
@@ -73,6 +76,7 @@ const nav = [
     { title: "Sponsor Score", url: "/grow/sponsor", icon: BadgeDollarSign },
     { title: "30-Day Plan", url: "/grow/launch-plan", icon: CalendarDays },
     { title: "Burnout Mode", url: "/grow/burnout", icon: Battery },
+    { title: "Content Battery", url: "/grow/content-battery", icon: BatteryCharging },
   ]},
   { section: "AI COACH", color: "cat-coach", cssVar: "--cat-coach", items: [
     { title: "Max AI Coach", url: "/coach", icon: Bot },
@@ -87,7 +91,9 @@ export function AppSidebar() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [channelName, setChannelName] = useState("");
   const [subCount, setSubCount] = useState("");
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<number, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem("cb_sidebar_expanded") || "{}"); } catch { return {}; }
+  });
   const [theme, setTheme] = useState(() => localStorage.getItem("cb_theme") || "dark");
   const isConnected = !!getToken();
 
@@ -108,6 +114,10 @@ export function AppSidebar() {
       });
     }
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("cb_sidebar_expanded", JSON.stringify(expanded));
+  }, [expanded]);
 
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
@@ -142,10 +152,7 @@ export function AppSidebar() {
                 <p className="text-sm font-semibold truncate">{channelName || "Alex Creates"}</p>
                 {subCount && <p className="text-[11px] text-muted-foreground">{subCount} subs</p>}
                 {isDemoMode() && (
-                  <span className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{
-                    background: "hsl(var(--warning) / 0.15)",
-                    color: "hsl(var(--warning))"
-                  }}>Demo</span>
+                  <span className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{ background: "hsl(var(--warning) / 0.15)", color: "hsl(var(--warning))" }}>Demo</span>
                 )}
               </div>
             )}
@@ -155,7 +162,6 @@ export function AppSidebar() {
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {nav.map((group, gi) => {
-            const sectionActive = group.items.some(i => location.pathname === i.url);
             const showAll = expanded[gi] || group.items.length <= MAX_VISIBLE;
             const visibleItems = showAll ? group.items : group.items.slice(0, MAX_VISIBLE);
             const hasMore = group.items.length > MAX_VISIBLE;
@@ -190,10 +196,7 @@ export function AppSidebar() {
                               {active && (
                                 <span
                                   className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-                                  style={{
-                                    backgroundColor: `hsl(var(${catColor}))`,
-                                    boxShadow: `0 0 8px hsl(var(${catColor}) / 0.6)`,
-                                  }}
+                                  style={{ backgroundColor: `hsl(var(${catColor}))`, boxShadow: `0 0 8px hsl(var(${catColor}) / 0.6)` }}
                                 />
                               )}
                               <item.icon
@@ -231,12 +234,7 @@ export function AppSidebar() {
               onClick={toggleTheme}
               className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
             >
-              <motion.div
-                key={theme}
-                initial={{ rotate: -180, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
+              <motion.div key={theme} initial={{ rotate: -180, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} transition={{ duration: 0.3 }}>
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </motion.div>
               {theme === "dark" ? "Light Mode" : "Dark Mode"}
