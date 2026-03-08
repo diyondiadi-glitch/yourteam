@@ -14,9 +14,9 @@ let cooldownUntil = 0;
 const statusListeners: Set<(s: typeof aiStatus) => void> = new Set();
 
 export function getAIStatus() { return aiStatus; }
-export function onAIStatusChange(fn: (s: typeof aiStatus) => void) {
+export function onAIStatusChange(fn: (s: typeof aiStatus) => void): () => void {
   statusListeners.add(fn);
-  return () => statusListeners.delete(fn);
+  return () => { statusListeners.delete(fn); };
 }
 function setStatus(s: typeof aiStatus) {
   aiStatus = s;
