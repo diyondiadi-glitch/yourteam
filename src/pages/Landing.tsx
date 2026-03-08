@@ -24,7 +24,8 @@ export default function Landing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated()) navigate("/dashboard", { replace: true });
+    // Only auto-redirect if user has a real YouTube token (not demo mode)
+    if (getToken()) navigate("/dashboard", { replace: true });
   }, []);
 
   function handleConnect() {
