@@ -137,10 +137,8 @@ export default function ThumbnailLab() {
                   <div className="h-24 flex items-center justify-center p-4" style={{
                     background: `linear-gradient(135deg, hsl(${(i * 120) % 360} 60% 20%), hsl(${(i * 120 + 60) % 360} 60% 15%))`
                   }}>
-                    <p className="text-xl font-black text-center" style={{
-                      color: c.text_color?.includes("#") ? c.text_color : "#ffffff"
-                    }}>
-                      {c.text_overlay}
+                    <p className="text-xl font-black text-center text-white">
+                      {typeof c.text_overlay === 'string' ? c.text_overlay : JSON.stringify(c.text_overlay)}
                     </p>
                   </div>
 
@@ -150,8 +148,8 @@ export default function ThumbnailLab() {
                       {i === 0 && <Trophy className="h-4 w-4 text-primary" />}
                     </div>
 
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full inline-block ${getEmotionBadge(c.emotion)}`}>
-                      {c.emotion}
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full inline-block ${getEmotionBadge(typeof c.emotion === 'string' ? c.emotion : '')}`}>
+                      {typeof c.emotion === 'string' ? c.emotion : JSON.stringify(c.emotion)}
                     </span>
 
                     {/* CTR Score */}
@@ -171,22 +169,12 @@ export default function ThumbnailLab() {
                     </div>
 
                     <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Background</p>
-                        <p className="text-xs">{c.background}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Focal Element</p>
-                        <p className="text-xs">{c.focal_element}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Why It Clicks</p>
-                        <p className="text-xs">{c.why_clicks}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">Target Viewer</p>
-                        <p className="text-xs">{c.target_viewer}</p>
-                      </div>
+                      {["background", "focal_element", "why_clicks", "target_viewer"].map(field => (
+                        <div key={field}>
+                          <p className="text-xs font-semibold text-muted-foreground capitalize">{field.replace(/_/g, " ")}</p>
+                          <p className="text-xs">{typeof (c as any)[field] === 'string' ? (c as any)[field] : JSON.stringify((c as any)[field])}</p>
+                        </div>
+                      ))}
                     </div>
 
                     <Button
