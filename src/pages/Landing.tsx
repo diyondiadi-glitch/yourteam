@@ -24,7 +24,9 @@ export default function Landing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Only auto-redirect if user has a real YouTube token (not demo mode)
+    // Clear demo mode when visiting landing page
+    disableDemoMode();
+    // Only auto-redirect if user has a real YouTube token
     if (getToken()) navigate("/dashboard", { replace: true });
   }, []);
 
