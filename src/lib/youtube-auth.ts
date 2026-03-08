@@ -5,7 +5,7 @@ const SCOPES = [
 ].join(" ");
 
 export function getRedirectURI(): string {
-  return `${window.location.origin}/auth/callback`;
+  return "https://yourteam.lovable.app/auth/callback";
 }
 
 export function getGoogleOAuthURL(): string {
