@@ -11,31 +11,7 @@ import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 interface PlateauAnalysis {
   plateau_type: string;
   root_cause: string;
-  weeks: { week: number; focus: string; videos: string[]; format_change: string }[];
-  posting_schedule: any;
-}
-
-function parseSchedule(schedule: any): { frequency: string; days: string; time: string } {
-  if (typeof schedule === "string") {
-    try {
-      const parsed = JSON.parse(schedule);
-      return {
-        frequency: parsed.frequency || schedule,
-        days: parsed.days || "",
-        time: parsed.time || "",
-      };
-    } catch {
-      return { frequency: schedule, days: "", time: "" };
-    }
-  }
-  if (typeof schedule === "object" && schedule !== null) {
-    return {
-      frequency: schedule.frequency || "",
-      days: Array.isArray(schedule.days) ? schedule.days.join(", ") : (schedule.days || ""),
-      time: schedule.time || "",
-    };
-  }
-  return { frequency: "3 videos per week", days: "", time: "" };
+  weeks: { week: number; focus: string; videos: { title: string; hook: string; best_day: string }[]; }[];
 }
 
 export default function PlateauBreaker() {
@@ -60,18 +36,37 @@ export default function PlateauBreaker() {
       setLoadStep(2);
 
       const result = await callGroq(
-        "This creator may be stuck in a growth plateau. Analyse their data and identify: what type of plateau this is (topic exhaustion/packaging decline/posting inconsistency/audience mismatch), the single root cause, and a specific 30-day breakout plan with exact video topics for each week, format changes to try, and posting schedule. Make the plan feel achievable. Return JSON with: plateau_type, root_cause, weeks (array of 4 objects with week number, focus, videos array of exactly 3 strings, format_change), posting_schedule (object with frequency, days, time).",
-        `${context}\n\nDiagnose the plateau and create a 30-day breakout plan.`
+        `This creator is stuck in a growth plateau. Their niche is productivity and tech. Create a 4-week breakout plan with YouTube-specific video topics for their niche. Each week has a strategic theme. Week 1 = Optimise existing content, Week 2 = Trend-driven content, Week 3 = Deep engagement content, Week 4 = Collaboration and reach. Return JSON: {plateau_type: string, root_cause: string, weeks: [{week: number, focus: string, videos: [{title: string (real YouTube title for tech/productivity), hook: string (first line of script), best_day: string}]}]}. Each week must have exactly 3 videos. Titles must be specific YouTube video titles for a tech/productivity creator, NOT generic lifestyle content.`,
+        `${context}\n\nDiagnose and create a breakout plan.`
       );
 
       const parsed = parseJsonFromResponse(result);
-      if (parsed) setAnalysis(parsed);
+      if (parsed) {
+        // Normalize videos to objects if they came back as strings
+        if (parsed.weeks) {
+          parsed.weeks = parsed.weeks.map((w: any) => ({
+            ...w,
+            videos: (w.videos || []).map((v: any) =>
+              typeof v === "string" ? { title: v, hook: "", best_day: "Saturday" } : v
+            ),
+          }));
+        }
+        setAnalysis(parsed);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   }
+
+  const weekThemes = ["🔧 Optimise", "📈 Trends", "💬 Engage", "🤝 Reach"];
+  const weekColors = [
+    { bg: "hsl(var(--cat-diagnose) / 0.1)", border: "hsl(var(--cat-diagnose) / 0.3)", text: "hsl(var(--cat-diagnose))" },
+    { bg: "hsl(var(--cat-strategy) / 0.1)", border: "hsl(var(--cat-strategy) / 0.3)", text: "hsl(var(--cat-strategy))" },
+    { bg: "hsl(var(--cat-analyze) / 0.1)", border: "hsl(var(--cat-analyze) / 0.3)", text: "hsl(var(--cat-analyze))" },
+    { bg: "hsl(var(--cat-grow) / 0.1)", border: "hsl(var(--cat-grow) / 0.3)", text: "hsl(var(--cat-grow))" },
+  ];
 
   const totalTasks = analysis?.weeks?.reduce((s, w) => s + (w.videos?.length || 0), 0) || 0;
   const completedTasks = Object.values(checked).filter(Boolean).length;
@@ -84,31 +79,29 @@ export default function PlateauBreaker() {
     );
   }
 
-  const schedule = analysis ? parseSchedule(analysis.posting_schedule) : null;
-
   return (
     <FeaturePage emoji="📉" title="Growth Plateau Breaker" description="Detect plateau patterns and get a 30-day breakout plan">
       {analysis && (
         <div className="space-y-8">
-          {/* Plateau Type Badge */}
+          {/* Plateau Badge */}
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center gap-4">
-            <div className="inline-flex items-center gap-3 rounded-2xl border-2 border-destructive/30 bg-destructive/10 px-8 py-4">
-              <TrendingDown className="h-8 w-8 text-destructive" />
+            <div className="cb-card inline-flex items-center gap-3 px-8 py-4" style={{ borderColor: 'hsl(var(--destructive) / 0.3)' }}>
+              <TrendingDown className="h-7 w-7 text-destructive" />
               <div>
-                <p className="text-xs font-semibold uppercase text-destructive tracking-wider">Plateau Type</p>
-                <p className="text-2xl font-bold">{analysis.plateau_type}</p>
+                <p className="t-label text-destructive">PLATEAU TYPE</p>
+                <p className="text-xl font-bold mt-0.5">{analysis.plateau_type}</p>
               </div>
             </div>
-            <p className="text-muted-foreground text-center max-w-md">{analysis.root_cause}</p>
+            <p className="t-body text-center max-w-md">{analysis.root_cause}</p>
           </motion.div>
 
-          {/* Progress Bar */}
-          <div className="rounded-xl border border-border bg-card p-5">
+          {/* Progress */}
+          <div className="cb-card">
             <div className="flex items-center justify-between mb-3">
-              <p className="section-header">📋 30-Day Plan Progress</p>
+              <p className="section-header">📋 30-Day Progress</p>
               <span className="data-number text-2xl">{completedTasks}/{totalTasks}</span>
             </div>
-            <div className="h-3 bg-secondary rounded-full overflow-hidden">
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0}%` }}
@@ -117,27 +110,6 @@ export default function PlateauBreaker() {
               />
             </div>
           </div>
-
-          {/* Schedule Cards */}
-          {schedule && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 text-center">
-                <Video className="h-5 w-5 text-primary mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground mb-1">Frequency</p>
-                <p className="font-bold">{schedule.frequency}</p>
-              </div>
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 text-center">
-                <Calendar className="h-5 w-5 text-primary mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground mb-1">Best Days</p>
-                <p className="font-bold">{schedule.days || "Mon, Wed, Fri"}</p>
-              </div>
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 text-center">
-                <Clock className="h-5 w-5 text-primary mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground mb-1">Upload Time</p>
-                <p className="font-bold">{schedule.time || "2:00 PM"}</p>
-              </div>
-            </div>
-          )}
 
           {/* Kanban Board */}
           <div>
@@ -151,17 +123,23 @@ export default function PlateauBreaker() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className="rounded-xl border border-border bg-card flex flex-col"
+                  className="cb-card flex flex-col !p-0 overflow-hidden"
                 >
                   {/* Column Header */}
-                  <div className="p-4 border-b border-border bg-secondary/30 rounded-t-xl">
+                  <div
+                    className="p-4 border-b"
+                    style={{
+                      backgroundColor: weekColors[i]?.bg,
+                      borderColor: weekColors[i]?.border,
+                    }}
+                  >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase text-primary">Week {week.week}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                        {week.format_change}
+                      <span className="t-label" style={{ color: weekColors[i]?.text }}>
+                        Week {week.week}
                       </span>
+                      <span className="text-sm">{weekThemes[i]}</span>
                     </div>
-                    <p className="text-sm font-semibold mt-1">{week.focus}</p>
+                    <p className="t-card-title mt-1 text-sm">{week.focus}</p>
                   </div>
 
                   {/* Video Cards */}
@@ -169,25 +147,34 @@ export default function PlateauBreaker() {
                     {week.videos?.map((vid, j) => {
                       const key = `${i}-${j}`;
                       const done = checked[key];
+                      const video = typeof vid === "string" ? { title: vid, hook: "", best_day: "" } : vid;
                       return (
                         <div
                           key={j}
                           onClick={() => setChecked(p => ({ ...p, [key]: !p[key] }))}
-                          className={`rounded-lg border p-3 cursor-pointer transition-all ${
+                          className={`rounded-lg border p-3 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 ${
                             done
-                              ? "border-primary/30 bg-primary/5 opacity-70"
-                              : "border-border bg-background hover:border-primary/20 hover:bg-secondary/30"
+                              ? "border-success/30 bg-success/5 opacity-70"
+                              : "border-border bg-background hover:border-primary/20"
                           }`}
                         >
                           <div className="flex items-start gap-2">
-                            <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                              done ? "bg-primary border-primary" : "border-muted-foreground/30"
+                            <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                              done ? "bg-success border-success" : "border-muted-foreground/30"
                             }`}>
-                              {done && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
+                              {done && <CheckCircle className="h-2.5 w-2.5 text-black" />}
                             </div>
-                            <span className={`text-sm leading-snug ${done ? "line-through text-muted-foreground" : ""}`}>
-                              {vid}
-                            </span>
+                            <div className="min-w-0">
+                              <span className={`text-xs font-medium leading-snug block ${done ? "line-through text-muted-foreground" : ""}`}>
+                                {video.title}
+                              </span>
+                              {video.hook && (
+                                <p className="text-[10px] text-muted-foreground mt-1 italic">"{video.hook}"</p>
+                              )}
+                              {video.best_day && (
+                                <span className="text-[10px] text-muted-foreground mt-1 inline-block">📅 {video.best_day}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
