@@ -28,7 +28,7 @@ export default function Landing() {
   }, []);
 
   function handleConnect() {
-    window.location.href = getGoogleOAuthURL();
+    signInWithGoogle();
   }
 
   return (
