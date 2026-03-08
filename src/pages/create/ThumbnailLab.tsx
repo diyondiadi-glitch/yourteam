@@ -137,10 +137,8 @@ export default function ThumbnailLab() {
                   <div className="h-24 flex items-center justify-center p-4" style={{
                     background: `linear-gradient(135deg, hsl(${(i * 120) % 360} 60% 20%), hsl(${(i * 120 + 60) % 360} 60% 15%))`
                   }}>
-                    <p className="text-xl font-black text-center" style={{
-                      color: c.text_color?.includes("#") ? c.text_color : "#ffffff"
-                    }}>
-                      {c.text_overlay}
+                    <p className="text-xl font-black text-center text-white">
+                      {typeof c.text_overlay === 'string' ? c.text_overlay : JSON.stringify(c.text_overlay)}
                     </p>
                   </div>
 
