@@ -1,5 +1,5 @@
 const GROQ_API_KEY = "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";
-const GROQ_MODEL = "llama3-70b-8192";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export async function callGroq(systemPrompt: string, userPrompt: string): Promise<string> {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -18,7 +18,10 @@ export async function callGroq(systemPrompt: string, userPrompt: string): Promis
       temperature: 0.7,
     }),
   });
-  if (!res.ok) throw new Error(`Groq API error: ${res.status}`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`AI is temporarily unavailable. Please try again in a moment. (${res.status})`);
+  }
   const data = await res.json();
   return data.choices?.[0]?.message?.content || "";
 }
@@ -45,7 +48,9 @@ export async function streamGroq(
       stream: true,
     }),
   });
-  if (!res.ok) throw new Error(`Groq API error: ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`AI is temporarily unavailable. Please try again in a moment.`);
+  }
 
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
@@ -79,7 +84,6 @@ export async function streamGroq(
 }
 
 export function parseJsonFromResponse(text: string): any {
-  // Try to extract JSON from markdown code blocks or raw text
   const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || text.match(/(\[[\s\S]*\])/) || text.match(/(\{[\s\S]*\})/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[1]); } catch { /* fallback */ }
