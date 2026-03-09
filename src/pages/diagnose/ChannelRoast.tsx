@@ -4,8 +4,6 @@ import { Flame, Mic, ChevronDown, ChevronUp, RefreshCw, Share2, Download, Sparkl
 import { Button } from "@/components/ui/button";
 import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
-import DemoBanner from "@/components/DemoBanner";
-import ConnectChannelCTA from "@/components/ConnectChannelCTA";
 import ShareInsight from "@/components/ShareInsight";
 import { useNavigate } from "react-router-dom";
 import { isAuthenticated } from "@/lib/youtube-auth";
