@@ -8,7 +8,7 @@ import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
 import { useNavigate } from "react-router-dom";
 import { isAuthenticated } from "@/lib/youtube-auth";
-import { getMyChannel, getRecentVideos, getChannelContext, searchChannel, getChannelById, getChannelVideos, formatCount } from "@/lib/youtube-api";
+import { getMyChannel, getRecentVideos, getChannelContext, formatCount } from "@/lib/youtube-api";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 
 interface CollabScript {
