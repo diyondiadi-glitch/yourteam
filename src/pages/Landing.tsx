@@ -181,16 +181,26 @@ export default function Landing() {
                     setError("");
                   }}
                   onKeyDown={(e) => e.key === "Enter" && handleAnalyse()}
-                  className="h-14 text-base mb-4"
+                  className="h-14 text-base mb-4 transition-shadow"
+                  style={{ boxShadow: "none" }}
+                  onFocus={(e) => { e.target.style.boxShadow = "0 0 0 3px rgba(250,204,21,0.3)"; }}
+                  onBlur={(e) => { e.target.style.boxShadow = "none"; }}
                   autoFocus
                 />
 
-                <p className="text-xs text-muted-foreground mb-5">
-                  Works with any format:{" "}
-                  <span className="text-foreground">youtube.com/@handle</span> ·{" "}
-                  <span className="text-foreground">youtube.com/channel/UCxxxxx</span> ·{" "}
-                  <span className="text-foreground">youtube.com/c/channelname</span>
-                </p>
+                {/* Format example pills */}
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {["@mkbhd", "youtube.com/@channelname", "youtube.com/channel/UC..."].map((example) => (
+                    <button
+                      key={example}
+                      onClick={() => setUrl(example === "youtube.com/channel/UC..." ? "" : example)}
+                      className="text-xs px-3 py-1.5 rounded-full transition-colors hover:bg-primary/10 hover:text-primary"
+                      style={{ background: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))" }}
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
 
                 {error && (
                   <motion.p
