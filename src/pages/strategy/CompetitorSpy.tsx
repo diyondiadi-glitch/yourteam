@@ -311,6 +311,19 @@ action_plan: array of 3 strings`,
               <p className="t-label mb-3 flex items-center gap-2" style={{ color: "#facc15" }}>
                 <Crown className="h-4 w-4" /> Their #1 Best Video
               </p>
+              {competitor && (
+                <div className="flex items-center gap-3 mb-4 p-3 rounded-xl" style={{ background: "rgba(250,204,21,0.04)", border: "1px solid rgba(250,204,21,0.1)" }}>
+                  <img src={competitor.avatar} className="h-10 w-10 rounded-full" alt="" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Best performing video from</p>
+                    <p className="text-sm font-semibold text-foreground">{competitor.name || competitor.title}</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="text-xs text-muted-foreground">total channel views</p>
+                    <p className="text-sm font-bold" style={{ color: "#facc15" }}>{formatCount(competitor.viewCount || competitor.totalViews || 0)}</p>
+                  </div>
+                </div>
+              )}
               <p className="text-lg font-bold text-foreground mb-1">&quot;{s(report.best_video.title)}&quot;</p>
               <p className="text-sm font-semibold mb-2" style={{ color: "#facc15" }}>
                 {typeof report.best_video.views === "number" ? formatCount(report.best_video.views) : s(report.best_video.views)} views
@@ -319,6 +332,36 @@ action_plan: array of 3 strings`,
               <Button size="sm" onClick={() => navigate(`/create/video-machine?topic=${encodeURIComponent(s(report.best_video.title))}`)}>
                 Make a Better Version <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
+            </motion.div>
+          )}
+
+          {/* COMPETITOR VIDEO GRID */}
+          {compVideos.length > 0 && (
+            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.37 }} className="cb-card">
+              <div className="flex items-center justify-between mb-4">
+                <p className="t-label flex items-center gap-2" style={{ color: "#60a5fa" }}>
+                  <Eye className="h-4 w-4" /> Their Recent Videos — Real Data
+                </p>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse" style={{ background: "rgba(248,113,113,0.12)", color: "#f87171" }}>
+                  LIVE FROM YOUTUBE
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {compVideos.slice(0, 10).map((v: any, i: number) => (
+                  <a key={i} href={`https://youtube.com/watch?v=${v.id}`} target="_blank" rel="noopener noreferrer" className="group cursor-pointer">
+                    <div className="relative aspect-video rounded-lg overflow-hidden mb-2">
+                      <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-xs font-bold text-white">▶ Watch</span>
+                      </div>
+                      <div className="absolute bottom-1 right-1 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#fff" }}>
+                        {formatCount(v.viewCount || v.views || 0)}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2 group-hover:text-foreground transition-colors">{v.title}</p>
+                  </a>
+                ))}
+              </div>
             </motion.div>
           )}
 
