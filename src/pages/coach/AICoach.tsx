@@ -4,7 +4,7 @@ import { Bot, Send, Zap, MessageSquare, TrendingDown, Heart, Swords } from "luci
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
 import { callGroq } from "@/lib/groq-api";
 import { ScrollArea } from "@/components/ui/scroll-area";
