@@ -70,6 +70,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
       }
 
       setProgress(p => ({ ...p, buildInsights: "done" }));
+      setConnectionLevel("quick");
       setStep("success");
     } catch (err: any) {
       setError(err.message || "Something went wrong. Try again.");
@@ -79,7 +80,16 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
   function handleDemo() {
     enableDemoMode();
+    setConnectionLevel("guest");
     onComplete();
+  }
+
+  async function handleFullConnect() {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setError(error);
+    }
+    // OAuth will redirect, so no need to call onComplete
   }
 
   const progressSteps = [
