@@ -1,6 +1,7 @@
 import { callAI, streamAI, parseJsonSafely } from "./ai-service";
 
 export const callGroq = callAI;
+export const streamGroq = streamAI;
 export const parseJsonFromResponse = parseJsonSafely;
 
 export async function generateVerdict(channelData: {
