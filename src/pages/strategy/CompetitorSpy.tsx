@@ -189,9 +189,10 @@ action_plan: array of 3 strings`,
 
               <div className="flex items-center justify-center gap-8">
                 <div className="text-center">
-                  {channel?.avatar && <img src={channel.avatar} className="h-10 w-10 rounded-full mx-auto mb-2" alt="" />}
-                  <p className="text-xs text-muted-foreground">You</p>
-                  <p className="text-lg font-bold" style={{ color: "#4ade80" }}>{formatCount(channel?.subscribers || 0)}</p>
+                  {channel?.avatar && <img src={channel.avatar} className="h-12 w-12 rounded-full mx-auto mb-2 ring-2 ring-offset-2 ring-offset-background" style={{ ringColor: "#4ade80" }} alt="" />}
+                  <p className="text-sm font-bold text-foreground">{channel?.name || channel?.title}</p>
+                  <p className="text-lg font-bold" style={{ color: "#4ade80" }}>{formatCount(channel?.subscribers || channel?.subscriberCount || 0)}</p>
+                  <p className="text-xs text-muted-foreground">subscribers</p>
                 </div>
                 <div className="text-center">
                   <div className="h-10 w-10 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: "rgba(250,204,21,0.15)" }}>
@@ -199,9 +200,10 @@ action_plan: array of 3 strings`,
                   </div>
                 </div>
                 <div className="text-center">
-                  {competitor?.avatar && <img src={competitor.avatar} className="h-10 w-10 rounded-full mx-auto mb-2" alt="" />}
-                  <p className="text-xs text-muted-foreground">Them</p>
+                  {competitor?.avatar && <img src={competitor.avatar} className="h-12 w-12 rounded-full mx-auto mb-2 ring-2 ring-offset-2 ring-offset-background" style={{ ringColor: "#f87171" }} alt="" />}
+                  <p className="text-sm font-bold text-foreground">{competitor?.name || competitor?.title}</p>
                   <p className="text-lg font-bold" style={{ color: "#f87171" }}>{formatCount(competitor?.subscriberCount || competitor?.subscribers || 0)}</p>
+                  <p className="text-xs text-muted-foreground">subscribers</p>
                 </div>
               </div>
             </div>
