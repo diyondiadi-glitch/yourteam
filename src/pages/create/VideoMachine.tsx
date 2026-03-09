@@ -45,7 +45,7 @@ export default function VideoMachine() {
       const vids = await getRecentVideos(ch.id, 10);
       const context = getChannelContext(ch, vids);
 
-      await streamGroq(
+      await streamAI(
         `You are an expert YouTube scriptwriter. Create a complete video package for this topic optimised for this creator's specific channel and audience. Generate in this exact order:
 
 ## 🎣 Hook Script (First 60 Seconds)
