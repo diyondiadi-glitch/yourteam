@@ -1,4 +1,4 @@
-import { callAI, parseJsonSafely } from "./ai-service";
+import { callAI, streamAI, parseJsonSafely } from "./ai-service";
 
 export const callGroq = callAI;
 export const parseJsonFromResponse = parseJsonSafely;

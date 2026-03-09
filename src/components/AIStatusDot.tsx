@@ -8,7 +8,7 @@ export default function AIStatusDot() {
 
   useEffect(() => {
     const unsub = onAIStatusChange(setStatus);
-    return unsub;
+    return () => { unsub(); };
   }, []);
 
   const colors = {
