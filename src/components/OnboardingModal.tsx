@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle, Zap, Sparkles, Link2, Search, Lock } from "lucide-react";
+import { Loader2, CheckCircle, Zap, Sparkles, Link2, Search, Lock, Shield } from "lucide-react";
 import {
   fetchChannelByUrl,
   fetchChannelVideos,
@@ -13,6 +13,7 @@ import {
 import { enableDemoMode } from "@/lib/youtube-api";
 import { callAI } from "@/lib/ai-service";
 import { formatCount } from "@/lib/youtube-api";
+import { setConnectionLevel, signInWithGoogle } from "@/lib/youtube-auth";
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -69,6 +70,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
       }
 
       setProgress(p => ({ ...p, buildInsights: "done" }));
+      setConnectionLevel("quick");
       setStep("success");
     } catch (err: any) {
       setError(err.message || "Something went wrong. Try again.");
@@ -78,7 +80,16 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
   function handleDemo() {
     enableDemoMode();
+    setConnectionLevel("guest");
     onComplete();
+  }
+
+  async function handleFullConnect() {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setError(error);
+    }
+    // OAuth will redirect, so no need to call onComplete
   }
 
   const progressSteps = [
@@ -105,18 +116,18 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
-                {/* Full Connect - Coming Soon */}
-                <div className="rounded-xl border border-border p-5 space-y-3 opacity-60">
+                {/* Full Connect - Enabled */}
+                <div className="rounded-xl border border-border p-5 space-y-3 hover:border-primary/30 transition-colors">
                   <div className="flex items-center gap-2">
-                    <Link2 className="h-5 w-5 text-muted-foreground" />
+                    <Shield className="h-5 w-5 text-primary" />
                     <h3 className="font-semibold">Full Connect</h3>
-                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                      Coming Soon
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      All Features
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">Connect your Google account directly. Unlocks private analytics + deeper data.</p>
-                  <Button disabled className="w-full" variant="outline">
-                    <Lock className="mr-2 h-4 w-4" /> Coming Soon
+                  <p className="text-sm text-muted-foreground">Sign in with Google. Unlocks private analytics, algorithm insights & deeper data.</p>
+                  <Button onClick={handleFullConnect} className="w-full" variant="outline">
+                    <Link2 className="mr-2 h-4 w-4" /> Connect with Google
                   </Button>
                 </div>
 

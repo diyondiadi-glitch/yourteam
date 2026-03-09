@@ -39,6 +39,9 @@ import BurnoutPredictor from "./pages/grow/BurnoutPredictor";
 import AICoach from "./pages/coach/AICoach";
 import CommentIntelligence from "./pages/grow/CommentIntelligence";
 import AudienceIntelligence from "./pages/grow/AudienceIntelligence";
+
+// Analyze (Full Connect required)
+import SubscriberConverter from "./pages/analyze/SubscriberConverter";
 import LaunchPlan from "./pages/grow/LaunchPlan";
 
 const queryClient = new QueryClient();
@@ -86,6 +89,9 @@ const App = () => (
           <Route path="/grow/comment-intelligence" element={withLayout(<CommentIntelligence />)} />
           <Route path="/grow/audience-intelligence" element={withLayout(<AudienceIntelligence />)} />
           <Route path="/grow/launch-plan" element={withLayout(<LaunchPlan />)} />
+
+          {/* ANALYZE (Full Connect) */}
+          <Route path="/analyze/subscriber-converter" element={withLayout(<SubscriberConverter />)} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>

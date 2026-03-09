@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
 import OnboardingModal from "@/components/OnboardingModal";
-import { hasChannelConnected } from "@/lib/youtube-auth";
+import { hasChannelConnected, setConnectionLevel, storeToken } from "@/lib/youtube-auth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -15,7 +15,9 @@ export default function AuthCallback() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          localStorage.setItem("yt_access_token", session.access_token || "authenticated");
+          // Store token and set full connection level (OAuth = full access)
+          storeToken(session.access_token || "authenticated");
+          setConnectionLevel("full");
           localStorage.setItem("user_email", session.user?.email || "");
           
           // Check if user already has a channel connected
@@ -32,7 +34,8 @@ export default function AuthCallback() {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get("access_token");
         if (accessToken) {
-          localStorage.setItem("yt_access_token", accessToken);
+          storeToken(accessToken);
+          setConnectionLevel("full");
           if (hasChannelConnected()) {
             navigate("/dashboard", { replace: true });
           } else {
