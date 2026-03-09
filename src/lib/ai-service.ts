@@ -1,74 +1,79 @@
-const GROQ_API_KEY = "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";
+const GROQ_KEY = "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";
+const OPENROUTER_KEY = "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";
 
-const models = [
+const GROQ_MODELS = [
   "llama-3.3-70b-versatile",
   "llama3-70b-8192",
   "llama3-8b-8192",
-  "mixtral-8x7b-32768",
   "gemma2-9b-it",
 ];
 
-// Track rate limit status globally
-let aiStatus: "ok" | "slow" | "limited" = "ok";
-let cooldownUntil = 0;
-const statusListeners: Set<(s: typeof aiStatus) => void> = new Set();
+const OPENROUTER_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "mistralai/mistral-7b-instruct:free",
+  "google/gemma-2-9b-it:free",
+  "microsoft/phi-3-mini-128k-instruct:free",
+];
 
-// Request deduplication cache (30 second TTL)
-const requestCache: Map<string, { result: string; timestamp: number }> = new Map();
-const CACHE_TTL = 30000;
+const cache = new Map<string, { result: string; ts: number }>();
+const CACHE_TTL = 30_000;
+
+type AIStatus = "ok" | "slow" | "limited";
+let aiStatus: AIStatus = "ok";
+const statusListeners = new Set<(s: AIStatus) => void>();
 
 export function getAIStatus() { return aiStatus; }
-export function onAIStatusChange(fn: (s: typeof aiStatus) => void): () => void {
+export function onAIStatusChange(fn: (s: AIStatus) => void) {
   statusListeners.add(fn);
-  return () => { statusListeners.delete(fn); };
+  return () => statusListeners.delete(fn);
 }
-function setStatus(s: typeof aiStatus) {
+function setStatus(s: AIStatus) {
   aiStatus = s;
   statusListeners.forEach(fn => fn(s));
 }
 
-// Robust JSON parser that handles all edge cases
-export function parseJsonSafely(text: string): any {
-  if (!text) return null;
-  
-  // Try direct parse
-  try { return JSON.parse(text); } catch {}
-  
-  // Strip markdown code blocks
-  const stripped = text
-    .replace(/```(?:json)?\s*/gi, '')
-    .replace(/```\s*/g, '')
-    .trim();
-  try { return JSON.parse(stripped); } catch {}
-  
-  // Extract first JSON object
-  const objMatch = stripped.match(/\{[\s\S]*\}/);
-  if (objMatch) { 
-    try { return JSON.parse(objMatch[0]); } catch {} 
-  }
-  
-  // Extract first JSON array
-  const arrMatch = stripped.match(/\[[\s\S]*\]/);
-  if (arrMatch) { 
-    try { return JSON.parse(arrMatch[0]); } catch {} 
-  }
-  
-  return null;
+async function callGroqModel(
+  model: string, system: string, user: string, maxTokens: number, temperature: number
+): Promise<string | null> {
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        max_tokens: maxTokens, temperature,
+      }),
+    });
+    if (res.status === 429 || !res.ok) return null;
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch { return null; }
 }
 
-// Legacy alias for backward compatibility
-export function parseJsonFromAI(text: string): any {
-  return parseJsonSafely(text);
-}
-
-function getCacheKey(systemPrompt: string, userPrompt: string): string {
-  return `${systemPrompt.slice(0, 100)}::${userPrompt.slice(0, 200)}`;
-}
-
-function checkChannelConnected(): void {
-  if (typeof window !== 'undefined' && !localStorage.getItem('yt_channel_data')) {
-    throw new Error("Please connect your channel first.");
-  }
+async function callOpenRouterModel(
+  model: string, system: string, user: string, maxTokens: number, temperature: number
+): Promise<string | null> {
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_KEY}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "CreatorBrain",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        max_tokens: maxTokens, temperature,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch { return null; }
 }
 
 export async function callAI(
@@ -76,153 +81,94 @@ export async function callAI(
   userPrompt: string,
   options?: { maxTokens?: number; temperature?: number; skipChannelCheck?: boolean }
 ): Promise<string> {
-  const { maxTokens = 2000, temperature = 0.7, skipChannelCheck = false } = options || {};
+  const { maxTokens = 2000, temperature = 0.7 } = options || {};
 
-  // Check channel is connected (unless skipped for landing page)
-  if (!skipChannelCheck) {
-    checkChannelConnected();
-  }
+  const cacheKey = systemPrompt.slice(0, 80) + userPrompt.slice(0, 80);
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.result;
 
-  // Check cache for deduplication
-  const cacheKey = getCacheKey(systemPrompt, userPrompt);
-  const cached = requestCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.result;
-  }
-
-  // If we're in cooldown, wait
-  const now = Date.now();
-  if (cooldownUntil > now) {
-    const wait = cooldownUntil - now;
-    if (wait > 15000) {
-      setStatus("limited");
-      throw new Error(`AI is cooling down. Please retry in ${Math.ceil(wait / 1000)}s.`);
-    }
-    await new Promise(r => setTimeout(r, wait));
-  }
-
-  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${GROQ_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: models[modelIndex],
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            max_tokens: maxTokens,
-            temperature,
-          }),
-        });
-
-        if (res.status === 429) {
-          // Parse retry-after from error body
-          try {
-            const err = await res.json();
-            const match = err.error?.message?.match(/try again in (\d+)m/i);
-            if (match) {
-              const mins = parseInt(match[1]);
-              cooldownUntil = Date.now() + mins * 60 * 1000;
-            } else {
-              cooldownUntil = Date.now() + 30000;
-            }
-          } catch {
-            cooldownUntil = Date.now() + 30000;
-          }
-          setStatus("limited");
-          // Try next model immediately
-          break;
-        }
-
-        if (!res.ok) continue;
-
-        const data = await res.json();
-        const result = data.choices?.[0]?.message?.content || "";
-        
-        // Cache successful result
-        requestCache.set(cacheKey, { result, timestamp: Date.now() });
-        
-        setStatus("ok");
-        return result;
-      } catch (err) {
-        if (attempt === 0) await new Promise(r => setTimeout(r, 500));
-      }
+  // Try Groq first
+  for (const model of GROQ_MODELS) {
+    const result = await callGroqModel(model, systemPrompt, userPrompt, maxTokens, temperature);
+    if (result) {
+      setStatus("ok");
+      cache.set(cacheKey, { result, ts: Date.now() });
+      return result;
     }
   }
+
+  // Fallback to OpenRouter
+  setStatus("slow");
+  for (const model of OPENROUTER_MODELS) {
+    const result = await callOpenRouterModel(model, systemPrompt, userPrompt, maxTokens, temperature);
+    if (result) {
+      setStatus("ok");
+      cache.set(cacheKey, { result, ts: Date.now() });
+      return result;
+    }
+  }
+
   setStatus("limited");
-  throw new Error("All AI models unavailable. Please try again in 30 seconds.");
+  throw new Error("AI is temporarily unavailable. Please try again in 30 seconds.");
 }
 
 export async function streamAI(
-  systemPrompt: string,
-  userPrompt: string,
-  onChunk: (text: string) => void
+  systemPrompt: string, userPrompt: string, onChunk: (text: string) => void
 ): Promise<string> {
-  checkChannelConnected();
-
-  // Use first available model with streaming
-  for (const model of models.slice(0, 3)) {
+  for (const model of GROQ_MODELS.slice(0, 2)) {
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` },
         body: JSON.stringify({
           model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 2000,
-          temperature: 0.7,
-          stream: true,
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          max_tokens: 2000, temperature: 0.7, stream: true,
         }),
       });
-
-      if (res.status === 429) continue;
-      if (!res.ok) continue;
-
+      if (res.status === 429 || !res.ok) continue;
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
-      let full = "";
-      let buffer = "";
-
+      let full = "", buffer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, newlineIdx);
-          buffer = buffer.slice(newlineIdx + 1);
+        let idx: number;
+        while ((idx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
           if (line.endsWith("\r")) line = line.slice(0, -1);
           if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
+          const json = line.slice(6).trim();
+          if (json === "[DONE]") break;
           try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              full += content;
-              onChunk(content);
-            }
-          } catch { /* partial */ }
+            const chunk = JSON.parse(json);
+            const content = chunk.choices?.[0]?.delta?.content;
+            if (content) { full += content; onChunk(content); }
+          } catch {}
         }
       }
       setStatus("ok");
       return full;
-    } catch {
-      continue;
-    }
+    } catch { continue; }
   }
-  setStatus("limited");
-  throw new Error("AI streaming unavailable. Please try again shortly.");
+
+  const result = await callAI(systemPrompt, userPrompt);
+  onChunk(result);
+  return result;
 }
+
+export function parseJsonSafely(text: string): any {
+  if (!text) return null;
+  try { return JSON.parse(text); } catch {}
+  const stripped = text.replace(/```(?:json)?\s*/gi, "").replace(/```\s*/g, "").trim();
+  try { return JSON.parse(stripped); } catch {}
+  const obj = stripped.match(/\{[\s\S]*\}/);
+  if (obj) { try { return JSON.parse(obj[0]); } catch {} }
+  const arr = stripped.match(/\[[\s\S]*\]/);
+  if (arr) { try { return JSON.parse(arr[0]); } catch {} }
+  return null;
+}
+
+export const parseJsonFromAI = parseJsonSafely;

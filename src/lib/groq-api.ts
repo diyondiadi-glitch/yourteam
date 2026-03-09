@@ -1,9 +1,7 @@
-// Re-export from ai-service for backward compatibility
-import { callAI, streamAI, parseJsonFromAI } from "./ai-service";
+import { callAI, parseJsonSafely } from "./ai-service";
 
 export const callGroq = callAI;
-export const streamGroq = streamAI;
-export const parseJsonFromResponse = parseJsonFromAI;
+export const parseJsonFromResponse = parseJsonSafely;
 
 export async function generateVerdict(channelData: {
   title: string;
