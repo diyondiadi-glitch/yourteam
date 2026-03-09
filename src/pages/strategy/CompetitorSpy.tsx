@@ -69,6 +69,7 @@ export default function CompetitorSpy() {
       setCompetitor(comp);
 
       const compVids = await getChannelVideos(compId, 10);
+      setCompVideos(compVids);
 
       const myContext = `MY CHANNEL:\nName: ${channel?.name}\nSubscribers: ${formatCount(channel?.subscribers || 0)}\nAvg Views: ${formatCount(channel?.avgViews || 0)}\nUpload Frequency: ${channel?.uploadFrequency}\nRecent Videos:\n${videos.slice(0, 8).map(v => `- "${v.title}" → ${formatCount(v.views)} views, ${v.likes} likes`).join("\n")}`;
 
