@@ -464,3 +464,19 @@ export function clearChannelData(): void {
   localStorage.removeItem("channel_connected");
   localStorage.removeItem("channel_id");
 }
+
+// Stub functions for competitor analysis features (require external channel lookup)
+export async function searchChannel(query: string): Promise<string | null> {
+  // For now, return null - full implementation would search YouTube
+  return null;
+}
+
+export async function getChannelById(channelId: string): Promise<ChannelData | null> {
+  // For now, return null - full implementation would fetch external channel
+  return null;
+}
+
+export async function getChannelVideos(channelId: string, maxResults = 20): Promise<VideoData[]> {
+  // For now, return empty - full implementation would fetch external channel videos
+  return [];
+}
