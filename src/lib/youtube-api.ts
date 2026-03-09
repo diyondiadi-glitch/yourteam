@@ -427,25 +427,6 @@ Best Performing Day: ${channel.bestDay || 'Wednesday'}
 Recent Videos:
 ${videoSummary}`;
 }
-  const videoSummary = channel.videos
-    .slice(0, 10)
-    .map(
-      (v) =>
-        `"${v.title}" - ${v.views} views, ${v.likes} likes, ${v.comments} comments, published ${v.publishedAt}`
-    )
-    .join("\n");
-
-  return `Channel: ${channel.name}
-Subscribers: ${formatCount(channel.subscribers)}
-Total Views: ${formatCount(channel.totalViews)}
-Total Videos: ${channel.videoCount}
-Average Views per Video: ${formatCount(channel.avgViews)}
-Upload Frequency: ${channel.uploadFrequency}
-Best Performing Day: ${channel.bestDay}
-
-Recent Videos:
-${videoSummary}`;
-}
 
 // ── Utility functions ───────────────────────────────────
 export function formatCount(n: number): string {
