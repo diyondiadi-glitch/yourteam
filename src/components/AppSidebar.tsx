@@ -10,12 +10,11 @@ import {
   TrendingUp, Zap as ZapIcon, Crown,
   ListOrdered, PenLine, Zap, Youtube,
   Gauge, CalendarDays, ChevronDown, Sun, Moon,
-  BarChart3, Heart, BatteryCharging,
+  BarChart3, Heart, BatteryCharging, LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getToken } from "@/lib/youtube-auth";
-import { isDemoMode } from "@/lib/youtube-api";
+import { isChannelConnected, clearChannelData, formatCount, type ChannelData } from "@/lib/youtube-api";
 import { useEffect, useState } from "react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -95,7 +94,7 @@ export function AppSidebar() {
     try { return JSON.parse(localStorage.getItem("cb_sidebar_expanded") || "{}"); } catch { return {}; }
   });
   const [theme, setTheme] = useState(() => localStorage.getItem("cb_theme") || "dark");
-  const isConnected = !!getToken();
+  const isConnected = isChannelConnected();
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", theme === "light");
@@ -104,22 +103,29 @@ export function AppSidebar() {
   }, [theme]);
 
   useEffect(() => {
-    if (getToken() || isDemoMode()) {
-      import("@/lib/youtube-api").then(({ getMyChannel, formatCount }) => {
-        getMyChannel().then(ch => {
-          setAvatar(ch.avatar);
-          setChannelName(ch.title);
-          setSubCount(formatCount(ch.subscriberCount));
-        }).catch(() => {});
-      });
+    if (isConnected) {
+      try {
+        const stored = localStorage.getItem("yt_channel_data");
+        if (stored) {
+          const data: ChannelData = JSON.parse(stored);
+          setAvatar(data.avatar);
+          setChannelName(data.name);
+          setSubCount(formatCount(data.subscribers));
+        }
+      } catch {}
     }
-  }, []);
+  }, [isConnected]);
 
   useEffect(() => {
     localStorage.setItem("cb_sidebar_expanded", JSON.stringify(expanded));
   }, [expanded]);
 
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
+
+  function handleDisconnect() {
+    clearChannelData();
+    navigate("/", { replace: true });
+  }
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50 sidebar-gradient">
@@ -140,20 +146,13 @@ export function AppSidebar() {
         </div>
 
         {/* Creator avatar */}
-        {(avatar || isDemoMode()) && (
+        {avatar && (
           <div className={`px-4 py-3 mb-1 flex items-center gap-3 border-b border-border/30 ${collapsed ? "justify-center" : ""}`}>
-            {avatar ? (
-              <img src={avatar} alt={channelName} className="h-9 w-9 rounded-full object-cover ring-2 ring-primary/30 shrink-0" />
-            ) : (
-              <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 text-xs font-bold text-primary">AC</div>
-            )}
+            <img src={avatar} alt={channelName} className="h-9 w-9 rounded-full object-cover ring-2 ring-primary/30 shrink-0" />
             {!collapsed && (
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{channelName || "Alex Creates"}</p>
+                <p className="text-sm font-semibold truncate">{channelName}</p>
                 {subCount && <p className="text-[11px] text-muted-foreground">{subCount} subs</p>}
-                {isDemoMode() && (
-                  <span className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{ background: "hsl(var(--warning) / 0.15)", color: "hsl(var(--warning))" }}>Demo</span>
-                )}
               </div>
             )}
           </div>
@@ -240,13 +239,13 @@ export function AppSidebar() {
               {theme === "dark" ? "Light Mode" : "Dark Mode"}
             </button>
           )}
-          {!isConnected && !collapsed && (
+          {isConnected && !collapsed && (
             <button
-              onClick={() => { localStorage.removeItem("demo_mode"); navigate("/"); }}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              onClick={handleDisconnect}
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
             >
-              <Youtube className="h-4 w-4" />
-              Connect YouTube
+              <LogOut className="h-4 w-4" />
+              Disconnect Channel
             </button>
           )}
         </div>

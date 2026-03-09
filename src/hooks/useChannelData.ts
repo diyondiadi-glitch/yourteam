@@ -1,64 +1,122 @@
-import { useState, useEffect, useCallback } from "react";
-import { getMyChannel, getRecentVideos, isDemoMode, formatCount, type ChannelData, type VideoData } from "@/lib/youtube-api";
-import { getStoredChannel, getStoredVideos } from "@/lib/youtube-public-api";
-import { isAuthenticated, hasChannelConnected } from "@/lib/youtube-auth";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import type { ChannelData, VideoData } from "@/lib/youtube-api";
+import { formatCount } from "@/lib/youtube-api";
+
+function detectNiche(videos: VideoData[]): string {
+  const titles = videos.map((v) => v.title).join(" ").toLowerCase();
+  if (titles.includes("code") || titles.includes("program") || titles.includes("dev"))
+    return "Tech & Programming";
+  if (titles.includes("game") || titles.includes("gaming") || titles.includes("play"))
+    return "Gaming";
+  if (titles.includes("cook") || titles.includes("recipe") || titles.includes("food"))
+    return "Food & Cooking";
+  if (titles.includes("fitness") || titles.includes("workout") || titles.includes("gym"))
+    return "Fitness";
+  if (titles.includes("finance") || titles.includes("money") || titles.includes("invest"))
+    return "Finance";
+  if (titles.includes("vlog") || titles.includes("day in") || titles.includes("life"))
+    return "Vlogging";
+  if (titles.includes("music") || titles.includes("song") || titles.includes("beat"))
+    return "Music";
+  if (titles.includes("beauty") || titles.includes("makeup") || titles.includes("skincare"))
+    return "Beauty";
+  if (titles.includes("travel") || titles.includes("trip") || titles.includes("explore"))
+    return "Travel";
+  if (titles.includes("business") || titles.includes("entrepreneur") || titles.includes("startup"))
+    return "Business";
+  if (titles.includes("review") || titles.includes("unbox"))
+    return "Reviews";
+  if (titles.includes("tutorial") || titles.includes("how to") || titles.includes("learn"))
+    return "Education";
+  return "General";
+}
 
 export interface UseChannelDataResult {
   channel: ChannelData | null;
   videos: VideoData[];
-  loading: boolean;
-  error: string;
-  isDemo: boolean;
+  comments: Record<string, any[]>;
+  subscribers: number;
   avgViews: number;
-  reload: () => void;
+  avgLikes: number;
+  totalViews: number;
+  videoCount: number;
+  bestDay: string;
+  uploadFrequency: string;
+  isPublicData: boolean;
+  channelName: string;
+  channelAvatar: string;
+  niche: string;
   channelContext: string;
+  isConnected: boolean;
 }
 
-export function useChannelData(videoCount = 20): UseChannelDataResult {
-  const [channel, setChannel] = useState<ChannelData | null>(null);
-  const [videos, setVideos] = useState<VideoData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+export function useChannelData(): UseChannelDataResult {
+  const navigate = useNavigate();
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const ch = await getMyChannel();
-      setChannel(ch);
-      const vids = await getRecentVideos(ch.id, videoCount);
-      setVideos(vids);
-    } catch (err: any) {
-      setError(err.message || "Failed to load channel data");
-    } finally {
-      setLoading(false);
-    }
-  }, [videoCount]);
+  const stored = localStorage.getItem("yt_channel_data");
 
   useEffect(() => {
-    if (isAuthenticated() && hasChannelConnected()) {
-      load();
-    } else {
-      setLoading(false);
+    if (!stored) {
+      navigate("/", { replace: true });
     }
-  }, [load]);
+  }, [stored, navigate]);
 
-  const avgViews = videos.length > 0
-    ? Math.round(videos.reduce((s, v) => s + v.viewCount, 0) / videos.length)
-    : 0;
+  if (!stored) {
+    return {
+      channel: null,
+      videos: [],
+      comments: {},
+      subscribers: 0,
+      avgViews: 0,
+      avgLikes: 0,
+      totalViews: 0,
+      videoCount: 0,
+      bestDay: "Wednesday",
+      uploadFrequency: "Weekly",
+      isPublicData: true,
+      channelName: "",
+      channelAvatar: "",
+      niche: "General",
+      channelContext: "",
+      isConnected: false,
+    };
+  }
 
-  const channelContext = channel
-    ? `Channel: ${channel.title}\nSubscribers: ${formatCount(channel.subscriberCount)}\nAvg Views: ${formatCount(avgViews)}\n\nRecent Videos:\n${videos.map(v => `"${v.title}" - ${v.viewCount} views, ${v.likeCount} likes, ${v.commentCount} comments, published ${v.publishedAt}`).join("\n")}`
-    : "";
+  const data: ChannelData = JSON.parse(stored);
+  const videos = data.videos || [];
+
+  const channelContext = `Channel: ${data.name}
+Subscribers: ${formatCount(data.subscribers)}
+Avg Views: ${formatCount(data.avgViews)}
+Upload Frequency: ${data.uploadFrequency}
+Best Day: ${data.bestDay}
+
+Recent Videos:
+${videos
+  .slice(0, 10)
+  .map(
+    (v) =>
+      `"${v.title}" - ${v.views} views, ${v.likes} likes, ${v.comments} comments, published ${v.publishedAt}`
+  )
+  .join("\n")}`;
 
   return {
-    channel,
+    channel: data,
     videos,
-    loading,
-    error,
-    isDemo: isDemoMode(),
-    avgViews,
-    reload: load,
+    comments: data.comments || {},
+    subscribers: data.subscribers || 0,
+    avgViews: data.avgViews || 0,
+    avgLikes: data.avgLikes || 0,
+    totalViews: data.totalViews || 0,
+    videoCount: data.videoCount || 0,
+    bestDay: data.bestDay || "Wednesday",
+    uploadFrequency: data.uploadFrequency || "Weekly",
+    isPublicData: data.isPublicData ?? true,
+    channelName: data.name || "",
+    channelAvatar: data.avatar || "",
+    niche: detectNiche(videos),
     channelContext,
+    isConnected: true,
   };
 }
