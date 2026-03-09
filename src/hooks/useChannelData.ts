@@ -49,11 +49,13 @@ export interface UseChannelDataResult {
   niche: string;
   channelContext: string;
   isConnected: boolean;
+  loading: boolean;
+  error: string;
+  reload: () => void;
 }
 
-export function useChannelData(): UseChannelDataResult {
+export function useChannelData(videoCount?: number): UseChannelDataResult {
   const navigate = useNavigate();
-
   const stored = localStorage.getItem("yt_channel_data");
 
   useEffect(() => {
@@ -80,11 +82,14 @@ export function useChannelData(): UseChannelDataResult {
       niche: "General",
       channelContext: "",
       isConnected: false,
+      loading: false,
+      error: "",
+      reload: () => {},
     };
   }
 
   const data: ChannelData = JSON.parse(stored);
-  const videos = data.videos || [];
+  const videos = videoCount ? data.videos.slice(0, videoCount) : data.videos;
 
   const channelContext = `Channel: ${data.name}
 Subscribers: ${formatCount(data.subscribers)}
@@ -97,7 +102,7 @@ ${videos
   .slice(0, 10)
   .map(
     (v) =>
-      `"${v.title}" - ${v.views} views, ${v.likes} likes, ${v.comments} comments, published ${v.publishedAt}`
+      `"${v.title}" - ${v.views || v.viewCount} views, ${v.likes || v.likeCount} likes, ${v.comments || v.commentCount} comments, published ${v.publishedAt}`
   )
   .join("\n")}`;
 
@@ -118,5 +123,8 @@ ${videos
     niche: detectNiche(videos),
     channelContext,
     isConnected: true,
+    loading: false,
+    error: "",
+    reload: () => window.location.reload(),
   };
 }

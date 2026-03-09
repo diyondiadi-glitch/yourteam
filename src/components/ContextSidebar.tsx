@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { getConnectionLevel, FULL_CONNECT_FEATURES } from "@/lib/youtube-auth";
+import { FULL_CONNECT_FEATURES } from "@/lib/youtube-auth";
 import type { ModeId } from "./ModeSwitcher";
 import {
   AlertTriangle, Flame, HeartPulse, TrendingUp, Dna, Home,
@@ -68,10 +68,8 @@ export default function ContextSidebar({ mode }: ContextSidebarProps) {
   const navigate = useNavigate();
   const items = sidebarItems[mode] || [];
   const colorVar = modeColors[mode];
-  const connectionLevel = getConnectionLevel();
 
   const isLocked = (url: string) => {
-    if (connectionLevel === "full") return false;
     return FULL_CONNECT_FEATURES.some(f => url.startsWith(f));
   };
 

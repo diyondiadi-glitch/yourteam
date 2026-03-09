@@ -3,12 +3,15 @@ const YT_API_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
 export interface ChannelData {
   id: string;
   name: string;
+  title?: string; // Alias for name (backward compat)
   handle: string;
   description: string;
   avatar: string;
   banner: string | null;
   subscribers: number;
+  subscriberCount?: number; // Alias for subscribers (backward compat)
   totalViews: number;
+  viewCount?: number; // Alias for totalViews (backward compat)
   videoCount: number;
   createdAt: string;
   country: string;
@@ -32,8 +35,11 @@ export interface VideoData {
   publishedAt: string;
   duration: string;
   views: number;
+  viewCount?: number; // Alias
   likes: number;
+  likeCount?: number; // Alias
   comments: number;
+  commentCount?: number; // Alias
   tags: string[];
   categoryId: string;
   defaultLanguage?: string;
@@ -62,7 +68,6 @@ export async function fetchCompleteChannelData(
   input: string,
   onProgress?: (progress: FetchProgress) => void
 ): Promise<ChannelData> {
-  // Clean the input
   let cleaned = input
     .trim()
     .replace("https://", "")
@@ -88,7 +93,6 @@ export async function fetchCompleteChannelData(
 
   onProgress?.({ step: "finding", message: "Finding your channel...", percent: 5 });
 
-  // Try fetching by handle
   let channelData: any = null;
 
   if (handle) {
@@ -103,7 +107,6 @@ export async function fetchCompleteChannelData(
     channelData = data.items?.[0] || null;
   }
 
-  // Try fetching by channel ID if handle failed
   if (!channelData && channelId) {
     const res = await fetch(
       `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}&key=${YT_API_KEY}`
@@ -115,7 +118,6 @@ export async function fetchCompleteChannelData(
     channelData = data.items?.[0] || null;
   }
 
-  // Try searching by username as last resort
   if (!channelData && handle) {
     const searchHandle = handle.replace("@", "");
     const res = await fetch(
@@ -157,7 +159,6 @@ export async function fetchCompleteChannelData(
 
   onProgress?.({ step: "videos", message: "Loading videos...", channelName, percent: 20 });
 
-  // Fetch all video IDs from uploads playlist
   let allVideoIds: string[] = [];
   let nextPageToken = "";
 
@@ -183,7 +184,6 @@ export async function fetchCompleteChannelData(
     });
   } while (nextPageToken && allVideoIds.length < 200);
 
-  // Fetch video statistics in batches of 50
   let allVideos: any[] = [];
   for (let i = 0; i < allVideoIds.length; i += 50) {
     const batch = allVideoIds.slice(i, i + 50).join(",");
@@ -210,7 +210,6 @@ export async function fetchCompleteChannelData(
     percent: 60,
   });
 
-  // Fetch comments for last 10 videos
   const recentVideos = allVideos.slice(0, 10);
   const commentsMap: Record<string, CommentData[]> = {};
 
@@ -253,7 +252,6 @@ export async function fetchCompleteChannelData(
     percent: 85,
   });
 
-  // Calculate channel analytics from public data
   const avgViews =
     allVideos.length > 0
       ? Math.round(
@@ -278,7 +276,6 @@ export async function fetchCompleteChannelData(
         )
       : 0;
 
-  // Detect upload frequency
   const sortedVideos = [...allVideos].sort(
     (a, b) => new Date(b.snippet.publishedAt).getTime() - new Date(a.snippet.publishedAt).getTime()
   );
@@ -292,7 +289,6 @@ export async function fetchCompleteChannelData(
     avgDaysBetweenUploads = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
   }
 
-  // Detect best performing day
   const dayPerformance: Record<string, { total: number; count: number }> = {};
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   allVideos.forEach((v) => {
@@ -306,19 +302,25 @@ export async function fetchCompleteChannelData(
       .map(([day, data]) => ({ day, avg: data.total / data.count }))
       .sort((a, b) => b.avg - a.avg)[0]?.day || "Wednesday";
 
-  // Build the complete channel object
+  const subs = parseInt(channelData.statistics?.subscriberCount || 0);
+  const totViews = parseInt(channelData.statistics?.viewCount || 0);
+  const vidCount = parseInt(channelData.statistics?.videoCount || 0);
+
   const result: ChannelData = {
     id: channelId,
     name: channelName,
+    title: channelName, // Alias
     handle: channelData.snippet.customUrl || handle,
     description: channelData.snippet.description,
     avatar:
       channelData.snippet.thumbnails?.high?.url ||
       channelData.snippet.thumbnails?.default?.url,
     banner: channelData.brandingSettings?.image?.bannerExternalUrl || null,
-    subscribers: parseInt(channelData.statistics?.subscriberCount || 0),
-    totalViews: parseInt(channelData.statistics?.viewCount || 0),
-    videoCount: parseInt(channelData.statistics?.videoCount || 0),
+    subscribers: subs,
+    subscriberCount: subs, // Alias
+    totalViews: totViews,
+    viewCount: totViews, // Alias
+    videoCount: vidCount,
     createdAt: channelData.snippet.publishedAt,
     country: channelData.snippet.country || "Unknown",
     avgViews,
@@ -334,31 +336,38 @@ export async function fetchCompleteChannelData(
           : avgDaysBetweenUploads <= 14
             ? "Bi-weekly"
             : "Monthly",
-    videos: sortedVideos.map((v) => ({
-      id: v.id,
-      title: v.snippet.title,
-      description: v.snippet.description || "",
-      thumbnail: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url,
-      publishedAt: v.snippet.publishedAt,
-      duration: v.contentDetails?.duration || "PT0S",
-      views: parseInt(v.statistics?.viewCount || 0),
-      likes: parseInt(v.statistics?.likeCount || 0),
-      comments: parseInt(v.statistics?.commentCount || 0),
-      tags: v.snippet.tags || [],
-      categoryId: v.snippet.categoryId,
-      defaultLanguage: v.snippet.defaultLanguage,
-      isShort:
-        parseInt(v.statistics?.viewCount || 0) > 0 &&
-        (v.contentDetails?.duration || "").includes("PT") &&
-        !v.contentDetails?.duration?.includes("H") &&
-        parseInt(v.contentDetails?.duration?.replace(/[^0-9]/g, "") || "0") <= 60,
-    })),
+    videos: sortedVideos.map((v) => {
+      const vw = parseInt(v.statistics?.viewCount || 0);
+      const lk = parseInt(v.statistics?.likeCount || 0);
+      const cm = parseInt(v.statistics?.commentCount || 0);
+      return {
+        id: v.id,
+        title: v.snippet.title,
+        description: v.snippet.description || "",
+        thumbnail: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url,
+        publishedAt: v.snippet.publishedAt,
+        duration: v.contentDetails?.duration || "PT0S",
+        views: vw,
+        viewCount: vw, // Alias
+        likes: lk,
+        likeCount: lk, // Alias
+        comments: cm,
+        commentCount: cm, // Alias
+        tags: v.snippet.tags || [],
+        categoryId: v.snippet.categoryId,
+        defaultLanguage: v.snippet.defaultLanguage,
+        isShort:
+          vw > 0 &&
+          (v.contentDetails?.duration || "").includes("PT") &&
+          !v.contentDetails?.duration?.includes("H") &&
+          parseInt(v.contentDetails?.duration?.replace(/[^0-9]/g, "") || "0") <= 60,
+      };
+    }),
     comments: commentsMap,
     fetchedAt: new Date().toISOString(),
     isPublicData: true,
   };
 
-  // Save everything to localStorage
   localStorage.setItem("yt_channel_data", JSON.stringify(result));
   localStorage.setItem("channel_connected", "true");
   localStorage.setItem("channel_id", channelId);
@@ -374,31 +383,26 @@ export async function fetchCompleteChannelData(
   return result;
 }
 
-// ── Utility functions ───────────────────────────────────
-export function formatCount(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-  return String(n);
+// ── Backward-compatible functions (used by existing pages) ──────────
+export async function getMyChannel(): Promise<ChannelData> {
+  const stored = localStorage.getItem("yt_channel_data");
+  if (!stored) throw new Error("No channel connected");
+  return JSON.parse(stored);
 }
 
-export function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days < 1) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days} days ago`;
-  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-  return `${Math.floor(days / 30)} months ago`;
+export async function getRecentVideos(channelId: string, maxResults = 10): Promise<VideoData[]> {
+  const stored = localStorage.getItem("yt_channel_data");
+  if (!stored) return [];
+  const data: ChannelData = JSON.parse(stored);
+  return data.videos.slice(0, maxResults);
 }
 
-export function calcChannelScore(videos: VideoData[], subscriberCount: number): number {
-  if (videos.length === 0) return 0;
-  const avgViews = videos.reduce((s, v) => s + v.views, 0) / videos.length;
-  const avgEngagement = videos.reduce((s, v) => s + v.likes + v.comments, 0) / videos.length;
-  const viewRatio = Math.min(avgViews / Math.max(subscriberCount, 1), 1) * 40;
-  const engagementScore = Math.min((avgEngagement / Math.max(avgViews, 1)) * 100, 1) * 30;
-  const consistencyScore = Math.min(videos.length / 6, 1) * 30;
-  return Math.round(viewRatio + engagementScore + consistencyScore);
+export async function getVideoComments(videoId: string, maxResults = 50): Promise<string[]> {
+  const stored = localStorage.getItem("yt_channel_data");
+  if (!stored) return [];
+  const data: ChannelData = JSON.parse(stored);
+  const comments = data.comments[videoId] || [];
+  return comments.slice(0, maxResults).map(c => c.text);
 }
 
 export function getChannelContext(channel: ChannelData): string {
@@ -420,6 +424,33 @@ Best Performing Day: ${channel.bestDay}
 
 Recent Videos:
 ${videoSummary}`;
+}
+
+// ── Utility functions ───────────────────────────────────
+export function formatCount(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return String(n);
+}
+
+export function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days < 1) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+  return `${Math.floor(days / 30)} months ago`;
+}
+
+export function calcChannelScore(videos: VideoData[], subscriberCount: number): number {
+  if (videos.length === 0) return 0;
+  const avgViews = videos.reduce((s, v) => s + (v.views || v.viewCount || 0), 0) / videos.length;
+  const avgEngagement = videos.reduce((s, v) => s + (v.likes || v.likeCount || 0) + (v.comments || v.commentCount || 0), 0) / videos.length;
+  const viewRatio = Math.min(avgViews / Math.max(subscriberCount, 1), 1) * 40;
+  const engagementScore = Math.min((avgEngagement / Math.max(avgViews, 1)) * 100, 1) * 30;
+  const consistencyScore = Math.min(videos.length / 6, 1) * 30;
+  return Math.round(viewRatio + engagementScore + consistencyScore);
 }
 
 export function isChannelConnected(): boolean {
