@@ -50,7 +50,7 @@ export default function RetentionPredictor() {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); }
   }, []);
 
   async function predict() {

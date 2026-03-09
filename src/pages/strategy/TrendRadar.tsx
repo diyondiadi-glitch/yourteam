@@ -119,7 +119,7 @@ export default function TrendRadar() {
   const refreshRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadTrends();
     refreshRef.current = setInterval(loadTrends, 30 * 60 * 1000); // 30 min
     return () => { if (refreshRef.current) clearInterval(refreshRef.current); };

@@ -27,7 +27,7 @@ export default function DeadVideoRevival() {
   const [underperformers, setUnderperformers] = useState<VideoData[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

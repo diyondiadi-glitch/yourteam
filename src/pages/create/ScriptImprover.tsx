@@ -27,7 +27,7 @@ export default function ScriptImprover() {
   const [result, setResult] = useState<ScriptResult | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   async function improve() {

@@ -32,7 +32,7 @@ export default function TitleTester() {
   const [loadStep, setLoadStep] = useState(0);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   async function battleTest() {

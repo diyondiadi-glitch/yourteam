@@ -18,7 +18,7 @@ export default function RecreateBest() {
   const [analysis, setAnalysis] = useState<any>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

@@ -30,7 +30,7 @@ export default function CommentMiner() {
   const [analysis, setAnalysis] = useState<CommentAnalysis | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadVideos();
   }, []);
 

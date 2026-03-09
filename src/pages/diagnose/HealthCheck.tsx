@@ -32,7 +32,7 @@ export default function HealthCheck() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

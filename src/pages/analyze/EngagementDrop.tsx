@@ -21,7 +21,7 @@ export default function EngagementDrop() {
   const [data, setData] = useState<DropData | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

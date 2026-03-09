@@ -40,7 +40,7 @@ export default function ThumbnailPsychology() {
   const [data, setData] = useState<ThumbnailData | null>(null);
   const [showRedesigns, setShowRedesigns] = useState(false);
 
-  useEffect(() => { if (!isAuthenticated()) navigate("/", { replace: true }); }, []);
+  useEffect(() => { if (!isChannelConnected()) navigate("/", { replace: true }); }, []);
 
   async function analyse() {
     if (!description.trim()) return;

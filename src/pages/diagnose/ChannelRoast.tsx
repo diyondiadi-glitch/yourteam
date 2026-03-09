@@ -53,7 +53,7 @@ export default function ChannelRoast() {
   const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   useEffect(() => {

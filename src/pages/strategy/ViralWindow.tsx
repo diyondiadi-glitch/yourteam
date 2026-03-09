@@ -26,7 +26,7 @@ export default function ViralWindow() {
   const [topics, setTopics] = useState<ViralTopic[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

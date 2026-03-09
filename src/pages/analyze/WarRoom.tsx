@@ -22,7 +22,7 @@ export default function WarRoom() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
     intervalRef.current = setInterval(loadData, 60000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };

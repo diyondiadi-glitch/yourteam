@@ -29,7 +29,7 @@ export default function IdeaValidator() {
   const [result, setResult] = useState<ValidationResult | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   async function validate() {

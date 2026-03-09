@@ -29,7 +29,7 @@ export default function BurnoutPredictor() {
   const [data, setData] = useState<BurnoutData | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

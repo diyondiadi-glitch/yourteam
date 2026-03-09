@@ -24,7 +24,7 @@ export default function NicheAuthority() {
   const [data, setData] = useState<NicheData | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

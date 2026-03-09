@@ -28,7 +28,7 @@ export default function CollabScriptGenerator() {
   const [script, setScript] = useState<CollabScript | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   async function generate() {

@@ -23,7 +23,7 @@ export default function BurnoutRecovery() {
   const [mood, setMood] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

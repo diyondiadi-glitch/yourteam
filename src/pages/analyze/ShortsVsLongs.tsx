@@ -28,7 +28,7 @@ export default function ShortsVsLongs() {
   const [verdict, setVerdict] = useState("");
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

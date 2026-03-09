@@ -35,7 +35,7 @@ export default function ThumbnailLab() {
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   async function generate() {

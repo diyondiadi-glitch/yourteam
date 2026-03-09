@@ -28,7 +28,7 @@ export default function AudiencePersona() {
   const [persona, setPersona] = useState<Persona | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

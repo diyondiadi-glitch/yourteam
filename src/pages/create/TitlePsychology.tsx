@@ -32,7 +32,7 @@ export default function TitlePsychology() {
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout>();
 
-  useEffect(() => { if (!isAuthenticated()) navigate("/", { replace: true }); }, []);
+  useEffect(() => { if (!isChannelConnected()) navigate("/", { replace: true }); }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

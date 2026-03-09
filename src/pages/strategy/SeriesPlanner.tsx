@@ -25,7 +25,7 @@ export default function SeriesPlanner() {
   const [data, setData] = useState<SeriesData | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

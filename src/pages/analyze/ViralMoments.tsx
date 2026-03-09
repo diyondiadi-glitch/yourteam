@@ -22,7 +22,7 @@ export default function ViralMoments() {
   const [data, setData] = useState<ViralData | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

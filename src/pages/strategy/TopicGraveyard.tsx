@@ -25,7 +25,7 @@ export default function TopicGraveyard() {
   const [topics, setTopics] = useState<GraveyardTopic[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

@@ -31,7 +31,7 @@ export default function VideoMachine() {
   const [step, setStep] = useState(0); // 0 = input, 1 = generating, 2 = done
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   async function generate() {

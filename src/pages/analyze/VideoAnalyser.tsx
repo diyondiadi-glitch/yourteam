@@ -49,7 +49,7 @@ export default function VideoAnalyser() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); }
   }, []);
 
   const toggleSection = (key: string) => setExpandedSections(p => ({ ...p, [key]: !p[key] }));

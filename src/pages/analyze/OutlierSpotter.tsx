@@ -21,7 +21,7 @@ export default function OutlierSpotter() {
   const [replicationIdeas, setReplicationIdeas] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

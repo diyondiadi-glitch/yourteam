@@ -25,7 +25,7 @@ export default function SponsorReadiness() {
   const [data, setData] = useState<ReadinessData | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

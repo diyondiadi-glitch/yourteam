@@ -22,7 +22,7 @@ export default function PlateauBreaker() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 
