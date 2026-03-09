@@ -148,7 +148,7 @@ action_plan: array of 3 strings`,
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !loading && analyze()}
-              placeholder="@mkbhd or youtube.com/@channelname"
+              placeholder="@technoblade, MrBeast, or paste any YouTube URL"
               className="h-13 rounded-xl text-base"
               style={{ background: "rgba(0,0,0,0.4)", borderColor: "rgba(167,139,250,0.3)", height: "52px" }}
             />
