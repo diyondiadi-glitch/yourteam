@@ -7,7 +7,7 @@ import CopyButton from "@/components/CopyButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
 import { callAI, parseJsonFromAI } from "@/lib/ai-service";
 
