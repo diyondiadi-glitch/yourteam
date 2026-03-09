@@ -76,47 +76,51 @@ export default function CompetitorSpy() {
       const compContext = `COMPETITOR CHANNEL:\nName: ${comp.title || comp.name}\nSubscribers: ${formatCount(comp.subscriberCount || comp.subscribers || 0)}\nTotal Views: ${formatCount(comp.viewCount || comp.totalViews || 0)}\nRecent Videos:\n${compVids.slice(0, 8).map((v: any) => `- "${v.title}" → ${formatCount(v.viewCount || v.views || 0)} views`).join("\n")}`;
 
       setLoadMsg("🤖 Running battle analysis...");
-      const result = await callAI(
-        `You are a YouTube competitive intelligence expert. Analyse these two channels and return ONLY a JSON object. No markdown. No explanation. No backticks. Start your response with { and end with }
 
-The JSON must have exactly these keys:
-battle_verdict, they_win_at, you_win_at, steal_these, exploit_these, topic_gaps, upload_frequency, title_formula, thumbnail_style, best_video, first_mover_topics, weakest_videos, growth_rate, engagement_vs_views, if_you_posted, action_plan
+      // Call 1 — strengths, gaps, titles
+      const result1 = await callAI(
+        `You are a YouTube analyst. Return ONLY raw JSON, nothing else. No markdown. No explanation. Just the JSON object starting with {`,
+        `Compare these channels and return this exact JSON:
+{"battle_verdict":"one sentence who is winning and why","they_win_at":["strength1","strength2","strength3"],"you_win_at":["advantage1","advantage2","advantage3"],"steal_these":[{"strength":"what they do","how_to_steal":"how to copy it"},{"strength":"","how_to_steal":""},{"strength":"","how_to_steal":""}],"exploit_these":[{"weakness":"their weakness","how_to_exploit":"how to exploit it"},{"weakness":"","how_to_exploit":""}],"topic_gaps":["topic1","topic2","topic3","topic4"],"title_formula":{"their_pattern":"their title formula","your_pattern":"your title formula","examples":["example1","example2","example3"]},"first_mover_topics":["topic1","topic2","topic3"],"action_plan":["action1","action2","action3"]}
 
-battle_verdict: string
-they_win_at: array of 3 strings
-you_win_at: array of 3 strings
-steal_these: array of 3 objects each with keys strength and how_to_steal
-exploit_these: array of 2 objects each with keys weakness and how_to_exploit
-topic_gaps: array of 4 strings
-upload_frequency: object with keys yours theirs recommendation
-title_formula: object with keys their_pattern your_pattern examples (array of 3 strings)
-thumbnail_style: object with keys their_style your_style recommendation
-best_video: object with keys title views why_it_worked
-first_mover_topics: array of 3 strings
-weakest_videos: array of 2 objects each with keys title views why_it_failed
-growth_rate: object with keys yours theirs who_is_faster
-engagement_vs_views: object with keys yours theirs weakness
-if_you_posted: object with keys topic predicted_views reasoning
-action_plan: array of 3 strings`,
-        `${myContext}\n\n${compContext}`
+${myContext}
+${compContext}`
       );
 
-      let parsed = parseJsonSafely(result);
-      if (!parsed) {
-        const start = result.indexOf("{");
-        const end = result.lastIndexOf("}");
+      // Call 2 — predictions and stats
+      const result2 = await callAI(
+        `You are a YouTube analyst. Return ONLY raw JSON, nothing else. No markdown. No explanation. Just the JSON object starting with {`,
+        `Compare these channels and return this exact JSON:
+{"best_video":{"title":"their best video title","views":0,"why_it_worked":"reason"},"weakest_videos":[{"title":"weak video","views":0,"why_it_failed":"reason"},{"title":"","views":0,"why_it_failed":""}],"growth_rate":{"yours":"your trajectory","theirs":"their trajectory","who_is_faster":"winner and why"},"engagement_vs_views":{"yours":"your engagement rate","theirs":"their engagement rate","weakness":"who has weak engagement"},"upload_frequency":{"yours":"your frequency","theirs":"their frequency","recommendation":"what to do"},"thumbnail_style":{"their_style":"their approach","your_style":"your approach","recommendation":"what to change"},"if_you_posted":{"topic":"their best topic for your channel","predicted_views":0,"reasoning":"why this would work"}}
+
+${myContext}
+${compContext}`
+      );
+
+      // Parse both and merge
+      function extractJson(text: string): any {
+        if (!text) return null;
+        try { return JSON.parse(text); } catch {}
+        const cleaned = text.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim();
+        try { return JSON.parse(cleaned); } catch {}
+        const start = cleaned.indexOf("{");
+        const end = cleaned.lastIndexOf("}");
         if (start !== -1 && end !== -1) {
-          try { parsed = JSON.parse(result.slice(start, end + 1)); } catch {}
+          try { return JSON.parse(cleaned.slice(start, end + 1)); } catch {}
         }
+        return null;
       }
 
-      if (!parsed) {
-        setError("AI returned an unexpected format. Please try again — this usually works on the second attempt.");
+      const parsed1 = extractJson(result1);
+      const parsed2 = extractJson(result2);
+
+      if (!parsed1 && !parsed2) {
+        setError("AI couldn't parse the data. Please try again.");
         setLoading(false);
         return;
       }
 
-      setReport(parsed);
+      setReport({ ...(parsed1 || {}), ...(parsed2 || {}) });
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
