@@ -4,7 +4,7 @@ import DemoBanner from "@/components/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { isAuthenticated, hasChannelConnected, clearToken } from "@/lib/youtube-auth";
 import { useChannelData } from "@/hooks/useChannelData";
 import { formatCount, calcChannelScore, timeAgo } from "@/lib/youtube-api";
