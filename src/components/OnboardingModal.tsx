@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle, Zap, Sparkles, Link2, Search, Lock } from "lucide-react";
+import { Loader2, CheckCircle, Zap, Sparkles, Link2, Search, Lock, Shield } from "lucide-react";
 import {
   fetchChannelByUrl,
   fetchChannelVideos,
@@ -13,6 +13,7 @@ import {
 import { enableDemoMode } from "@/lib/youtube-api";
 import { callAI } from "@/lib/ai-service";
 import { formatCount } from "@/lib/youtube-api";
+import { setConnectionLevel, signInWithGoogle } from "@/lib/youtube-auth";
 
 interface OnboardingModalProps {
   onComplete: () => void;
