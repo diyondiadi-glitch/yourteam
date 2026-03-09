@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle, Zap, Youtube, Sparkles, Link2, Search } from "lucide-react";
+import { Loader2, CheckCircle, Zap, Sparkles, Link2, Search, Lock } from "lucide-react";
 import {
   fetchChannelByUrl,
   fetchChannelVideos,
@@ -13,7 +13,6 @@ import {
 import { enableDemoMode } from "@/lib/youtube-api";
 import { callAI } from "@/lib/ai-service";
 import { formatCount } from "@/lib/youtube-api";
-import { supabase } from "@/lib/supabase";
 
 interface OnboardingModalProps {
   onComplete: () => void;
@@ -77,17 +76,6 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
     }
   }
 
-  async function handleFullConnect() {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        scopes: "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly",
-        queryParams: { access_type: "offline", prompt: "consent" },
-      },
-    });
-    if (error) setError("Google sign-in failed. Try Quick Connect instead.");
-  }
-
   function handleDemo() {
     enableDemoMode();
     onComplete();
@@ -117,34 +105,45 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
-                {/* Full Connect */}
-                <div className="rounded-xl border border-border p-5 space-y-3 hover:border-primary/30 transition-colors">
+                {/* Full Connect - Coming Soon */}
+                <div className="rounded-xl border border-border p-5 space-y-3 opacity-60">
                   <div className="flex items-center gap-2">
-                    <Link2 className="h-5 w-5 text-primary" />
+                    <Link2 className="h-5 w-5 text-muted-foreground" />
                     <h3 className="font-semibold">Full Connect</h3>
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                      Coming Soon
+                    </span>
                   </div>
                   <p className="text-sm text-muted-foreground">Connect your Google account directly. Unlocks private analytics + deeper data.</p>
-                  <Button onClick={handleFullConnect} className="w-full" style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}>
-                    <Youtube className="mr-2 h-4 w-4" /> Connect Google
+                  <Button disabled className="w-full" variant="outline">
+                    <Lock className="mr-2 h-4 w-4" /> Coming Soon
                   </Button>
                 </div>
 
-                {/* Quick Connect */}
-                <div className="rounded-xl border border-primary/20 p-5 space-y-3" style={{ boxShadow: "0 0 24px hsl(var(--primary) / 0.08)" }}>
+                {/* Quick Connect - Primary */}
+                <div className="rounded-xl border-2 border-primary/40 p-5 space-y-3" style={{ boxShadow: "0 0 32px hsl(var(--primary) / 0.12)" }}>
                   <div className="flex items-center gap-2">
                     <Search className="h-5 w-5 text-primary" />
                     <h3 className="font-semibold">Quick Connect</h3>
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      Recommended
+                    </span>
                   </div>
                   <p className="text-sm text-muted-foreground">Paste your channel URL. No permissions needed. Works instantly.</p>
                   <Input
-                    placeholder="youtube.com/@handle"
+                    placeholder="youtube.com/@yourchannel"
                     value={url}
                     onChange={(e) => { setUrl(e.target.value); setError(""); }}
                     onKeyDown={(e) => e.key === "Enter" && handleQuickConnect()}
-                    className="h-10"
+                    className="h-11"
+                    autoFocus
                   />
-                  <Button onClick={handleQuickConnect} variant="outline" className="w-full">
-                    Go →
+                  <Button 
+                    onClick={handleQuickConnect} 
+                    className="w-full h-11 font-semibold"
+                    style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
+                  >
+                    Connect Channel →
                   </Button>
                 </div>
               </div>
