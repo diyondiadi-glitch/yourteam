@@ -1,10 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
+import OnboardingModal from "@/components/OnboardingModal";
+import { hasChannelConnected } from "@/lib/youtube-auth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -13,7 +17,15 @@ export default function AuthCallback() {
         if (session) {
           localStorage.setItem("yt_access_token", session.access_token || "authenticated");
           localStorage.setItem("user_email", session.user?.email || "");
-          navigate("/dashboard", { replace: true });
+          
+          // Check if user already has a channel connected
+          if (hasChannelConnected()) {
+            navigate("/dashboard", { replace: true });
+          } else {
+            // Show onboarding to connect channel
+            setShowOnboarding(true);
+            setChecking(false);
+          }
           return;
         }
 
@@ -21,7 +33,12 @@ export default function AuthCallback() {
         const accessToken = hashParams.get("access_token");
         if (accessToken) {
           localStorage.setItem("yt_access_token", accessToken);
-          navigate("/dashboard", { replace: true });
+          if (hasChannelConnected()) {
+            navigate("/dashboard", { replace: true });
+          } else {
+            setShowOnboarding(true);
+            setChecking(false);
+          }
           return;
         }
 
@@ -33,6 +50,14 @@ export default function AuthCallback() {
 
     handleCallback();
   }, [navigate]);
+
+  function handleOnboardingComplete() {
+    navigate("/dashboard", { replace: true });
+  }
+
+  if (showOnboarding) {
+    return <OnboardingModal onComplete={handleOnboardingComplete} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">

@@ -10,6 +10,7 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
           access_type: "offline",
           prompt: "consent",
         },
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
@@ -18,7 +19,6 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
       return { error: "Google sign-in failed. Please try Demo Mode to explore the app!" };
     }
 
-    // Supabase handles the redirect automatically using the Site URL
     return { error: null };
   } catch (err: any) {
     console.error("Sign-in error:", err);
@@ -50,4 +50,10 @@ export function isAuthenticated(): boolean {
 
 export function hasChannelConnected(): boolean {
   return !!localStorage.getItem("yt_channel_id") || localStorage.getItem("demo_mode") === "true";
+}
+
+export function needsOnboarding(): boolean {
+  const hasAuth = !!getToken();
+  const hasChannel = hasChannelConnected();
+  return hasAuth && !hasChannel;
 }
