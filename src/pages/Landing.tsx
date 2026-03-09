@@ -86,7 +86,8 @@ export default function Landing() {
       try {
         const aiInsight = await callAI(
           "You are a YouTube growth expert. Give ONE specific, exciting insight about this channel in 2 sentences. Be encouraging but specific.",
-          `Channel: ${channelData.name}, ${channelData.subscribers} subs, ${channelData.videoCount} videos, avg ${channelData.avgViews} views. Top: "${channelData.videos[0]?.title}" with ${channelData.videos[0]?.views} views.`
+          `Channel: ${channelData.name}, ${channelData.subscribers} subs, ${channelData.videoCount} videos, avg ${channelData.avgViews} views. Top: "${channelData.videos[0]?.title}" with ${channelData.videos[0]?.views} views.`,
+          { skipChannelCheck: true }
         );
         setInsight(aiInsight);
       } catch {
