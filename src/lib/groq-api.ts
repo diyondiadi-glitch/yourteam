@@ -1,20 +1,20 @@
-import { callAI, streamAI, parseJsonSafely } from "./ai-service";
+import { callAI, parseJsonSafely } from "@/lib/ai-service";
 
-export const callGroq = callAI;
-export const streamGroq = streamAI;
-export const parseJsonFromResponse = parseJsonSafely;
+export async function callGroq(system: string, user: string): Promise<string> {
+  return callAI(system, user);
+}
 
-export async function generateVerdict(channelData: {
+export function parseJsonFromResponse(text: string): any {
+  return parseJsonSafely(text);
+}
+
+export async function generateVerdict(channel: {
   title: string;
   subscriberCount: number;
   recentVideos: { title: string; viewCount: number; publishedAt: string }[];
 }): Promise<string> {
-  const videoSummary = channelData.recentVideos
-    .map((v) => `"${v.title}" (${v.viewCount} views, ${v.publishedAt})`)
-    .join("\n");
-
   return callAI(
-    "You are a YouTube growth strategist. Given channel data, provide ONE specific, actionable priority for today in 1-2 sentences. Be specific about what to do and why based on the data. No fluff.",
-    `Channel: ${channelData.title}\nSubscribers: ${channelData.subscriberCount}\n\nRecent videos:\n${videoSummary}\n\nWhat is this creator's #1 priority today?`
+    "You are a YouTube growth expert. Give ONE specific actionable insight in 2 sentences max. No fluff.",
+    `Channel: ${channel.title}, ${channel.subscriberCount} subs. Recent videos: ${channel.recentVideos.slice(0, 5).map(v => `"${v.title}" (${v.viewCount} views)`).join(", ")}`
   );
 }
