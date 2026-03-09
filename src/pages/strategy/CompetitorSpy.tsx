@@ -45,6 +45,7 @@ export default function CompetitorSpy() {
     setError("");
     setReport(null);
     setCompetitor(null);
+    setCompVideos([]);
 
     // Clean the input into a bare handle or channel name
     let cleanQuery = query.trim()
