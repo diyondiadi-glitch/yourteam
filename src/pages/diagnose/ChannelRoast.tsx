@@ -389,7 +389,7 @@ export default function ChannelRoast() {
               </Button>
             </motion.div>
 
-            <ConnectChannelCTA featureName="Channel Roast" />
+            
           </>
         )}
       </div>
