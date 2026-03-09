@@ -489,18 +489,99 @@ export function clearChannelData(): void {
   localStorage.removeItem("channel_id");
 }
 
-// Stub functions for competitor analysis features (require external channel lookup)
 export async function searchChannel(query: string): Promise<string | null> {
-  // For now, return null - full implementation would search YouTube
+  const clean = query.trim()
+    .replace(/https?:\/\//g, "")
+    .replace(/www\.youtube\.com\//g, "")
+    .replace(/youtube\.com\//g, "")
+    .replace(/^@/, "")
+    .split("/")[0].split("?")[0].trim();
+
+  try {
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${clean}&key=${YT_API_KEY}`);
+    const d = await r.json();
+    if (d.items?.[0]?.id) return d.items[0].id;
+  } catch {}
+
+  try {
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=id&forUsername=${clean}&key=${YT_API_KEY}`);
+    const d = await r.json();
+    if (d.items?.[0]?.id) return d.items[0].id;
+  } catch {}
+
+  try {
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(clean)}&maxResults=1&key=${YT_API_KEY}`);
+    const d = await r.json();
+    if (d.items?.[0]?.snippet?.channelId) return d.items[0].snippet.channelId;
+    if (d.items?.[0]?.id?.channelId) return d.items[0].id.channelId;
+  } catch {}
+
   return null;
 }
 
 export async function getChannelById(channelId: string): Promise<ChannelData | null> {
-  // For now, return null - full implementation would fetch external channel
-  return null;
+  try {
+    const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings&id=${channelId}&key=${YT_API_KEY}`);
+    const d = await r.json();
+    const ch = d.items?.[0];
+    if (!ch) return null;
+    const subs = parseInt(ch.statistics?.subscriberCount || "0");
+    const views = parseInt(ch.statistics?.viewCount || "0");
+    return {
+      id: ch.id,
+      name: ch.snippet.title,
+      title: ch.snippet.title,
+      handle: ch.snippet.customUrl || "",
+      description: ch.snippet.description || "",
+      avatar: ch.snippet.thumbnails?.high?.url || ch.snippet.thumbnails?.default?.url || "",
+      banner: ch.brandingSettings?.image?.bannerExternalUrl || null,
+      subscribers: subs,
+      subscriberCount: subs,
+      totalViews: views,
+      viewCount: views,
+      videoCount: parseInt(ch.statistics?.videoCount || "0"),
+      createdAt: ch.snippet.publishedAt || "",
+      country: ch.snippet.country || "",
+      avgViews: 0, avgLikes: 0, avgComments: 0,
+      bestDay: "", avgDaysBetweenUploads: 0, uploadFrequency: "",
+      videos: [], comments: {},
+      fetchedAt: new Date().toISOString(),
+      isPublicData: true,
+    };
+  } catch { return null; }
 }
 
-export async function getChannelVideos(channelId: string, maxResults = 20): Promise<VideoData[]> {
-  // For now, return empty - full implementation would fetch external channel videos
-  return [];
+export async function getChannelVideos(channelId: string, maxResults = 10): Promise<VideoData[]> {
+  try {
+    const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YT_API_KEY}`);
+    const chData = await chRes.json();
+    const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+    if (!uploadsId) return [];
+
+    const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${uploadsId}&maxResults=${maxResults}&key=${YT_API_KEY}`);
+    const plData = await plRes.json();
+    const ids = plData.items?.map((i: any) => i.contentDetails.videoId).join(",");
+    if (!ids) return [];
+
+    const vRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${ids}&key=${YT_API_KEY}`);
+    const vData = await vRes.json();
+
+    return (vData.items || []).map((v: any) => ({
+      id: v.id,
+      title: v.snippet.title,
+      description: v.snippet.description || "",
+      thumbnail: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url || "",
+      publishedAt: v.snippet.publishedAt,
+      duration: v.contentDetails?.duration || "",
+      views: parseInt(v.statistics?.viewCount || "0"),
+      viewCount: parseInt(v.statistics?.viewCount || "0"),
+      likes: parseInt(v.statistics?.likeCount || "0"),
+      likeCount: parseInt(v.statistics?.likeCount || "0"),
+      comments: parseInt(v.statistics?.commentCount || "0"),
+      commentCount: parseInt(v.statistics?.commentCount || "0"),
+      tags: v.snippet.tags || [],
+      categoryId: v.snippet.categoryId || "",
+      isShort: false,
+    }));
+  } catch { return []; }
 }
