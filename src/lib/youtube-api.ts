@@ -405,7 +405,28 @@ export async function getVideoComments(videoId: string, maxResults = 50): Promis
   return comments.slice(0, maxResults).map(c => c.text);
 }
 
-export function getChannelContext(channel: ChannelData): string {
+// Two-argument version for backward compatibility
+export function getChannelContext(channel: ChannelData, videos?: VideoData[]): string {
+  const vids = videos || channel.videos;
+  const videoSummary = vids
+    .slice(0, 10)
+    .map(
+      (v) =>
+        `"${v.title}" - ${v.views || v.viewCount} views, ${v.likes || v.likeCount} likes, ${v.comments || v.commentCount} comments, published ${v.publishedAt}`
+    )
+    .join("\n");
+
+  return `Channel: ${channel.name || channel.title}
+Subscribers: ${formatCount(channel.subscribers || channel.subscriberCount || 0)}
+Total Views: ${formatCount(channel.totalViews || channel.viewCount || 0)}
+Total Videos: ${channel.videoCount}
+Average Views per Video: ${formatCount(channel.avgViews || 0)}
+Upload Frequency: ${channel.uploadFrequency || 'Weekly'}
+Best Performing Day: ${channel.bestDay || 'Wednesday'}
+
+Recent Videos:
+${videoSummary}`;
+}
   const videoSummary = channel.videos
     .slice(0, 10)
     .map(
