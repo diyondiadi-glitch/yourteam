@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ModeSwitcher, { type ModeId } from "@/components/ModeSwitcher";
 import ContextSidebar from "@/components/ContextSidebar";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ModeId>("diagnose");
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    if (!isChannelConnected()) {
       navigate("/", { replace: true });
     } else {
       setChecked(true);

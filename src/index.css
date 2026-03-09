@@ -11,6 +11,17 @@
     --background-section: 240 6% 7%;
     --background-card: 240 5% 9%;
     --foreground: 0 0% 100%;
+    
+    /* CreatorBrain design system */
+    --cb-page: 240 7% 3%;
+    --cb-section: 240 6% 7%;
+    --cb-card: 240 5% 9%;
+    --cb-border: 0 0% 100% / 0.06;
+    --cb-border-hover: 0 0% 100% / 0.12;
+    --cb-glow-yellow: 0 0 28px rgba(250,204,21,0.10);
+    --cb-glow-green: 0 0 20px rgba(74,222,128,0.08);
+    --cb-glow-red: 0 0 20px rgba(248,113,113,0.08);
+    --cb-glow-blue: 0 0 20px rgba(96,165,250,0.08);
 
     --card: 240 5% 9%;
     --card-foreground: 0 0% 100%;
@@ -154,26 +165,43 @@
 @layer components {
   /* ── Card system ─────────────────────────────────────── */
   .cb-card {
-    @apply rounded-xl p-5 transition-all duration-200;
     background: hsl(var(--background-card));
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  }
-  .dark .cb-card {
-    border-color: rgba(255,255,255,0.06);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 24px;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
   }
   .cb-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    border-color: rgba(255,255,255,0.12);
   }
-  .dark .cb-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+
+  .cb-card-win {
+    box-shadow: var(--cb-glow-green);
+    border-color: rgba(74,222,128,0.15);
+  }
+
+  .cb-card-problem {
+    box-shadow: var(--cb-glow-red);
+    border-color: rgba(248,113,113,0.15);
+  }
+
+  .cb-card-ai {
+    border-left: 4px solid #60a5fa;
+    background: rgba(96,165,250,0.04);
+  }
+
+  .cb-card-verdict {
+    box-shadow: var(--cb-glow-yellow);
+    border-color: rgba(250,204,21,0.20);
   }
 
   .cb-card-glow {
-    @apply cb-card;
-    box-shadow: 0 0 20px hsla(48, 96%, 53%, 0.12), 0 1px 3px rgba(0,0,0,0.4);
+    background: hsl(var(--background-card));
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 0 20px hsla(48, 96%, 53%, 0.12);
   }
 
   .cb-section {
@@ -182,6 +210,13 @@
   }
 
   /* ── Typography scale ────────────────────────────────── */
+  .t-hero {
+    font-size: clamp(40px, 6vw, 64px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+
   .t-page {
     font-size: 52px;
     font-weight: 800;
@@ -190,11 +225,8 @@
   }
 
   .t-section {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: hsl(var(--muted-foreground));
+    font-size: 20px;
+    font-weight: 700;
   }
 
   .t-card-title {
@@ -206,22 +238,23 @@
   .t-body {
     font-size: 14px;
     font-weight: 400;
-    color: hsl(var(--muted-foreground));
-    line-height: 1.6;
+    color: #a1a1aa;
+    line-height: 1.65;
   }
 
   .t-label {
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
   }
 
   /* ── Data numbers ────────────────────────────────────── */
   .data-number {
-    font-size: 32px;
+    font-size: 36px;
     font-weight: 800;
-    color: hsl(var(--primary));
+    color: #facc15;
+    line-height: 1;
   }
 
   .data-number-xl {
@@ -232,13 +265,13 @@
   .data-number-win {
     font-size: 32px;
     font-weight: 800;
-    color: hsl(var(--success));
+    color: #4ade80;
   }
 
   .data-number-loss {
     font-size: 20px;
     font-weight: 600;
-    color: hsl(var(--muted-foreground));
+    color: #f87171;
   }
 
   /* ── Gradient & glow effects ─────────────────────────── */
@@ -280,7 +313,6 @@
   /* ── Legacy compat ───────────────────────────────────── */
   .card-glow { @apply transition-shadow duration-300; }
   .card-glow:hover { box-shadow: var(--glow-primary); }
-
   .feature-title { @apply t-page; }
   .section-header { font-size: 18px; @apply font-semibold; }
   .section-label { @apply t-label px-3 py-2; color: hsl(var(--muted-foreground)); }
@@ -299,20 +331,21 @@
   .score-warn { color: hsl(var(--warning)); }
   .score-bad { color: hsl(var(--destructive)); }
 
-  /* ── Demo banner ─────────────────────────────────────── */
-  .demo-banner {
-    background: linear-gradient(135deg, hsl(48, 96%, 53%) 0%, hsl(33, 95%, 55%) 100%);
-    color: #000;
-    height: 44px;
-  }
-
   /* ── Animated bars ───────────────────────────────────── */
   .bar-animate {
     animation: bar-grow 0.6s ease-out forwards;
   }
-
   @keyframes bar-grow {
     from { width: 0; }
+  }
+
+  /* ── Animate in ─────────────────────────────────────── */
+  .animate-in {
+    animation: slideUp 280ms ease forwards;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   /* ── Count up animation helper ───────────────────────── */

@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, Wrench, ChevronDown, Skull, Zap } from "lucide-react";
+import { AlertTriangle, Wrench, ChevronDown, Skull, Zap, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
-import { getMyChannel, getRecentVideos, getChannelContext, formatCount, type VideoData, type ChannelData } from "@/lib/youtube-api";
-import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
+import { isChannelConnected, formatCount, type VideoData, type ChannelData } from "@/lib/youtube-api";
+import { callAI, parseJsonSafely } from "@/lib/ai-service";
 import { getSelectedVideo, clearSelectedVideo } from "@/lib/video-context";
 
 interface Diagnosis {
@@ -24,36 +22,38 @@ export default function VideoDeath() {
   const navigate = useNavigate();
   const [channel, setChannel] = useState<ChannelData | null>(null);
   const [videos, setVideos] = useState<VideoData[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<string>("");
+  const [selectedVideoId, setSelectedVideoId] = useState<string>("");
   const [diagnosis, setDiagnosis] = useState<Diagnosis[]>([]);
   const [killer, setKiller] = useState("");
+  const [failureType, setFailureType] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [loadStep, setLoadStep] = useState(0);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { 
+      navigate("/", { replace: true }); 
+      return; 
+    }
     loadVideos();
-  }, []);
+  }, [navigate]);
 
   async function loadVideos() {
     try {
-      const ch = await getMyChannel();
+      const stored = localStorage.getItem('yt_channel_data');
+      if (!stored) { navigate('/'); return; }
+      const ch: ChannelData = JSON.parse(stored);
       setChannel(ch);
-      const vids = await getRecentVideos(ch.id, 20);
-      setVideos(vids);
+      setVideos(ch.videos?.slice(0, 10) || []);
 
       // Check for pre-selected video from video context
       const preSelected = getSelectedVideo();
       if (preSelected) {
         clearSelectedVideo();
-        const match = vids.find(v => v.id === preSelected.id);
+        const match = ch.videos?.find(v => v.id === preSelected.id);
         if (match) {
-          setSelectedVideo(match.id);
-          // Auto-run diagnosis after a tick
-          setTimeout(() => {
-            setSelectedVideo(match.id);
-          }, 100);
+          setSelectedVideoId(match.id);
         }
       }
     } catch (err) {
@@ -64,46 +64,62 @@ export default function VideoDeath() {
   }
 
   async function runDiagnosis() {
-    if (!selectedVideo || !channel) return;
-    const video = videos.find(v => v.id === selectedVideo);
+    if (!selectedVideoId || !channel) return;
+    const video = videos.find(v => v.id === selectedVideoId);
     if (!video) return;
 
     setLoading(true);
     setDiagnosis([]);
     setKiller("");
+    setFailureType("");
     setLoadStep(0);
 
-    const avgViews = Math.round(videos.reduce((s, v) => s + v.viewCount, 0) / videos.length);
-    const avgLikes = Math.round(videos.reduce((s, v) => s + v.likeCount, 0) / videos.length);
-    const avgComments = Math.round(videos.reduce((s, v) => s + v.commentCount, 0) / videos.length);
+    const avgViews = Math.round(videos.reduce((s, v) => s + v.views, 0) / videos.length);
+    const avgLikes = Math.round(videos.reduce((s, v) => s + v.likes, 0) / videos.length);
+    const avgComments = Math.round(videos.reduce((s, v) => s + v.comments, 0) / videos.length);
     const publishDay = new Date(video.publishedAt).toLocaleDateString("en-US", { weekday: "long" });
 
     setTimeout(() => setLoadStep(1), 1500);
     setTimeout(() => setLoadStep(2), 3000);
 
     try {
-      const result = await callGroq(
-        "You are a brutal YouTube algorithm expert. Given this video's performance data compared to channel averages, identify exactly 3 reasons it underperformed. For each reason give: the specific evidence from the data, the emotional impact on the creator, and one precise actionable fix. Be specific, be brutal, be helpful. Format as JSON array with fields: reason, evidence, emotional_context, fix, priority(high/medium/low). After the JSON array, add a line starting with 'KILLER:' followed by the single most important reason.",
-        `Channel: ${channel.title} (${formatCount(channel.subscriberCount)} subs)
+      const result = await callAI(
+        `You are a brutal YouTube algorithm expert. Given this video's performance data compared to channel averages, identify exactly 3 reasons it underperformed. 
+
+Return JSON with this exact structure:
+{
+  "failure_type": "PACKAGING" | "CONTENT" | "TIMING" | "ALGORITHM",
+  "killer_reason": "Single most important reason this video failed",
+  "bottom_line": "One sentence summary",
+  "diagnosis": [
+    {"reason": "specific reason", "evidence": "data evidence", "emotional_context": "impact on creator", "fix": "actionable fix", "priority": "high|medium|low"},
+    {"reason": "...", "evidence": "...", "emotional_context": "...", "fix": "...", "priority": "..."},
+    {"reason": "...", "evidence": "...", "emotional_context": "...", "fix": "...", "priority": "..."}
+  ]
+}
+
+Be specific, be brutal, be helpful.`,
+        `Channel: ${channel.name} (${formatCount(channel.subscribers)} subs)
 Channel averages: ${formatCount(avgViews)} views, ${avgLikes} likes, ${avgComments} comments per video
 
 THIS VIDEO:
 Title: "${video.title}"
-Views: ${formatCount(video.viewCount)} (${video.viewCount < avgViews ? "BELOW" : "ABOVE"} average by ${Math.abs(Math.round((video.viewCount / avgViews - 1) * 100))}%)
-Likes: ${video.likeCount}
-Comments: ${video.commentCount}
+Views: ${formatCount(video.views)} (${video.views < avgViews ? "BELOW" : "ABOVE"} average by ${Math.abs(Math.round((video.views / avgViews - 1) * 100))}%)
+Likes: ${video.likes}
+Comments: ${video.comments}
 Published: ${video.publishedAt} (${publishDay})
 
 Why did this video underperform?`
       );
 
-      const parsed = parseJsonFromResponse(result);
-      if (Array.isArray(parsed)) {
-        setDiagnosis(parsed);
+      const parsed = parseJsonSafely(result);
+      if (parsed) {
+        setFailureType(parsed.failure_type || "PACKAGING");
+        setKiller(parsed.killer_reason || parsed.bottom_line || "Check the diagnosis above");
+        if (Array.isArray(parsed.diagnosis)) {
+          setDiagnosis(parsed.diagnosis);
+        }
       }
-
-      const killerMatch = result.match(/KILLER:\s*(.+)/i);
-      setKiller(killerMatch?.[1] || (parsed?.[0]?.reason || "Check the diagnosis above"));
     } catch (err) {
       console.error(err);
     } finally {
@@ -112,42 +128,82 @@ Why did this video underperform?`
   }
 
   const priorityColor = (p: string) => {
-    if (p === "high") return "text-destructive";
-    if (p === "medium") return "text-warning";
-    return "text-muted-foreground";
+    if (p === "high") return "hsl(var(--destructive))";
+    if (p === "medium") return "hsl(var(--warning))";
+    return "hsl(var(--muted-foreground))";
   };
+
+  const avgViews = videos.length > 0 ? Math.round(videos.reduce((s, v) => s + v.views, 0) / videos.length) : 0;
 
   return (
     <FeaturePage emoji="💀" title="Autopsy Room" description="Select any video and get a brutally honest diagnosis with actionable fixes">
-      {/* Video selector */}
+      {/* Video Grid Selector */}
       <div className="mb-6">
         {loadingVideos ? (
-          <div className="h-12 rounded-xl bg-secondary animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className="aspect-video rounded-xl bg-secondary animate-pulse" />
+            ))}
+          </div>
         ) : (
-          <Select value={selectedVideo} onValueChange={setSelectedVideo}>
-            <SelectTrigger className="h-12 rounded-xl">
-              <SelectValue placeholder="Select a video to diagnose..." />
-            </SelectTrigger>
-            <SelectContent>
-              {videos.map(v => (
-                <SelectItem key={v.id} value={v.id}>
-                  {v.title} ({formatCount(v.viewCount)} views)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {videos.map(v => {
+              const isBelow = v.views < avgViews * 0.6;
+              const isAbove = v.views > avgViews * 1.2;
+              const isSelected = selectedVideoId === v.id;
+              
+              return (
+                <motion.div
+                  key={v.id}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setSelectedVideoId(v.id)}
+                  className={`cursor-pointer rounded-xl overflow-hidden transition-all ${
+                    isSelected 
+                      ? 'ring-2 ring-destructive shadow-[0_0_20px_rgba(248,113,113,0.3)]' 
+                      : 'hover:ring-1 hover:ring-border'
+                  }`}
+                  style={{ background: "hsl(var(--background-card))", border: "1px solid hsl(var(--border))" }}
+                >
+                  <div className="relative">
+                    <img src={v.thumbnail} alt={v.title} className="w-full aspect-video object-cover" />
+                    <div className="absolute top-2 right-2">
+                      {isBelow ? (
+                        <Skull className="h-5 w-5 text-destructive drop-shadow-lg" />
+                      ) : isAbove ? (
+                        <Flame className="h-5 w-5 text-success drop-shadow-lg" />
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-medium line-clamp-2 mb-1">{v.title}</p>
+                    <p className="text-xs text-muted-foreground">{formatCount(v.views)} views</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      <Button
-        variant="destructive"
-        size="lg"
-        className="w-full h-14 rounded-xl text-lg font-bold mb-8"
-        onClick={runDiagnosis}
-        disabled={!selectedVideo || loading}
-      >
-        <Skull className="mr-2 h-5 w-5" /> Run Diagnosis
-      </Button>
+      <AnimatePresence>
+        {selectedVideoId && !loading && diagnosis.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <Button
+              variant="destructive"
+              size="lg"
+              className="w-full h-14 rounded-xl text-lg font-bold mb-8 animate-pulse"
+              onClick={runDiagnosis}
+            >
+              <Skull className="mr-2 h-5 w-5" /> Run Autopsy
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {loading && (
         <LoadingSteps
@@ -157,33 +213,61 @@ Why did this video underperform?`
       )}
 
       <AnimatePresence>
+        {/* Layer 1 — Verdict Card */}
+        {killer && failureType && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="cb-card mb-6"
+            style={{ 
+              boxShadow: "0 0 20px rgba(248,113,113,0.08)",
+              borderColor: "rgba(248,113,113,0.15)"
+            }}
+          >
+            <div className="text-center">
+              <span 
+                className="inline-block px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider mb-4"
+                style={{ background: "hsl(var(--destructive) / 0.12)", color: "hsl(var(--destructive))" }}
+              >
+                {failureType}
+              </span>
+              <p className="text-2xl font-bold mb-2">{killer}</p>
+              <p className="text-sm text-primary">Fix this first.</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Layer 2 — Diagnosis Cards */}
         {diagnosis.length > 0 && (
           <div className="space-y-4 mb-8">
-            {diagnosis.map((d, i) => (
+            {diagnosis.slice(0, showFullAnalysis ? diagnosis.length : 3).map((d, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, x: -40 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.3 }}
-                className="rounded-xl border border-border bg-card p-6 card-glow"
+                transition={{ delay: i * 0.15 }}
+                className="cb-card relative"
               >
+                {/* Priority dot */}
+                <div 
+                  className="absolute top-4 right-4 h-3 w-3 rounded-full"
+                  style={{ background: priorityColor(d.priority) }}
+                />
+                
                 <div className="flex items-start gap-3 mb-3">
                   <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold">Reason #{i + 1}: {d.reason}</p>
-                      <span className={`text-xs font-bold uppercase ${priorityColor(d.priority)}`}>{d.priority}</span>
-                    </div>
-                    <p className="text-sm text-warning">{d.evidence}</p>
+                    <p className="text-lg font-semibold mb-1">{d.reason}</p>
+                    <p className="text-sm" style={{ color: "hsl(var(--primary))" }}>{d.evidence}</p>
                     {d.emotional_context && (
                       <p className="text-xs text-muted-foreground mt-1 italic">{d.emotional_context}</p>
                     )}
                   </div>
                   <CopyButton text={`${d.reason}\n${d.evidence}\n${d.fix}`} />
                 </div>
-                <div className="ml-11 mt-3 p-3 rounded-lg bg-success/5 border border-success/10">
+                <div className="ml-11 mt-3 p-3 rounded-lg" style={{ background: "hsl(var(--success) / 0.06)", border: "1px solid hsl(var(--success) / 0.15)" }}>
                   <div className="flex items-center gap-2 mb-1">
                     <Wrench className="h-3.5 w-3.5 text-success" />
                     <span className="text-xs font-semibold uppercase text-success">Fix</span>
@@ -192,23 +276,19 @@ Why did this video underperform?`
                 </div>
               </motion.div>
             ))}
+
+            {diagnosis.length > 3 && !showFullAnalysis && (
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => setShowFullAnalysis(true)}
+              >
+                See Complete Breakdown <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
         )}
       </AnimatePresence>
-
-      {killer && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="rounded-xl border border-destructive/20 bg-destructive/5 p-6"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Zap className="h-4 w-4 text-destructive" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-destructive">The Real Killer</p>
-          </div>
-          <p className="text-sm leading-relaxed">{killer}. Fix this first.</p>
-        </motion.div>
-      )}
     </FeaturePage>
   );
 }
