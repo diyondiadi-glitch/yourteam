@@ -44,8 +44,12 @@ export function clearToken() {
 }
 
 export function isAuthenticated(): boolean {
+  // Delegates to isChannelConnected — app uses public API, not OAuth
   return localStorage.getItem("channel_connected") === "true";
 }
+
+// Re-export for code that imports from here
+export { isChannelConnected } from "@/lib/youtube-api";
 
 // Features that require full OAuth (private analytics)
 export const FULL_CONNECT_FEATURES = [
