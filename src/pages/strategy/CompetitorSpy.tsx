@@ -45,9 +45,20 @@ export default function CompetitorSpy() {
     setReport(null);
     setCompetitor(null);
 
+    // Clean the input into a bare handle or channel name
+    let cleanQuery = query.trim()
+      .replace("https://", "")
+      .replace("http://", "")
+      .replace("www.youtube.com/", "")
+      .replace("youtube.com/", "")
+      .replace("@", "")
+      .split("/")[0]
+      .split("?")[0]
+      .trim();
+
     try {
       setLoadMsg("🔍 Finding competitor channel...");
-      const compId = await searchChannel(query);
+      const compId = await searchChannel(cleanQuery);
       if (!compId) throw new Error("Channel not found. Try their exact @handle.");
 
       setLoadMsg("📊 Loading competitor data...");
@@ -137,7 +148,7 @@ action_plan: array of 3 strings`,
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !loading && analyze()}
-              placeholder="@mkbhd or youtube.com/@channelname"
+              placeholder="@technoblade, MrBeast, or paste any YouTube URL"
               className="h-13 rounded-xl text-base"
               style={{ background: "rgba(0,0,0,0.4)", borderColor: "rgba(167,139,250,0.3)", height: "52px" }}
             />
