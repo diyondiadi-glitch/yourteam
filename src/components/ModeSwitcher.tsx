@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Zap, Sun, Moon, LogOut } from "lucide-react";
-import { isDemoMode } from "@/lib/youtube-api";
-import { getMyChannel, formatCount } from "@/lib/youtube-api";
-import { clearToken, getToken } from "@/lib/youtube-auth";
+import { isChannelConnected, clearChannelData, formatCount, type ChannelData } from "@/lib/youtube-api";
 
 const modes = [
   { id: "diagnose", label: "DIAGNOSE", color: "#f87171" },
@@ -59,17 +57,22 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
   }, [theme]);
 
   useEffect(() => {
-    getMyChannel().then(ch => {
-      setAvatar(ch.avatar);
-      setChannelName(ch.title);
-      setSubCount(formatCount(ch.subscriberCount));
-    }).catch(() => {});
+    if (isChannelConnected()) {
+      try {
+        const stored = localStorage.getItem("yt_channel_data");
+        if (stored) {
+          const data: ChannelData = JSON.parse(stored);
+          setAvatar(data.avatar);
+          setChannelName(data.name);
+          setSubCount(formatCount(data.subscribers));
+        }
+      } catch {}
+    }
   }, []);
 
   function handleModeClick(mode: ModeId) {
     setActiveMode(mode);
     onModeChange(mode);
-    // Navigate to first item in mode
     const defaultRoutes: Record<ModeId, string> = {
       diagnose: "/dashboard",
       create: "/create/video-machine",
@@ -83,7 +86,6 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
 
   return (
     <header className="h-12 flex items-center justify-between border-b border-border/50 px-4 bg-background/95 backdrop-blur-sm sticky top-0 z-40">
-      {/* Left: Logo + Mode tabs */}
       <div className="flex items-center gap-6">
         <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 shrink-0">
           <div className="h-6 w-6 rounded-md flex items-center justify-center" style={{ background: "hsl(var(--primary) / 0.15)" }}>
@@ -114,7 +116,6 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
         </nav>
       </div>
 
-      {/* Right: Avatar + Theme */}
       <div className="flex items-center gap-2">
         <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
           {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
@@ -125,10 +126,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
             <span className="text-xs text-muted-foreground hidden md:inline">{channelName}</span>
           </div>
         )}
-        {isDemoMode() && (
-          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{ background: "hsl(var(--warning) / 0.15)", color: "hsl(var(--warning))" }}>Demo</span>
-        )}
-        <button onClick={() => { clearToken(); navigate("/"); }} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Disconnect">
+        <button onClick={() => { clearChannelData(); navigate("/"); }} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Disconnect">
           <LogOut className="h-3.5 w-3.5" />
         </button>
       </div>

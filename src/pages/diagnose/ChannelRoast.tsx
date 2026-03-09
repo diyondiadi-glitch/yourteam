@@ -4,8 +4,6 @@ import { Flame, Mic, ChevronDown, ChevronUp, RefreshCw, Share2, Download, Sparkl
 import { Button } from "@/components/ui/button";
 import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
-import DemoBanner from "@/components/DemoBanner";
-import ConnectChannelCTA from "@/components/ConnectChannelCTA";
 import ShareInsight from "@/components/ShareInsight";
 import { useNavigate } from "react-router-dom";
 import { isAuthenticated } from "@/lib/youtube-auth";
@@ -129,7 +127,7 @@ export default function ChannelRoast() {
       }} />
 
       <div className="relative p-6 md:p-8 max-w-[920px] mx-auto">
-        <DemoBanner />
+        
 
         {/* Header */}
         <motion.div
@@ -391,7 +389,7 @@ export default function ChannelRoast() {
               </Button>
             </motion.div>
 
-            <ConnectChannelCTA featureName="Channel Roast" />
+            
           </>
         )}
       </div>
