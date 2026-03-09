@@ -116,18 +116,18 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
-                {/* Full Connect - Enabled */}
-                <div className="rounded-xl border border-border p-5 space-y-3 hover:border-primary/30 transition-colors">
+                {/* Full Connect - Coming Soon */}
+                <div className="rounded-xl border border-border p-5 space-y-3 opacity-60">
                   <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-primary" />
+                    <Lock className="h-5 w-5 text-muted-foreground" />
                     <h3 className="font-semibold">Full Connect</h3>
-                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                      All Features
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                      Coming Soon
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">Sign in with Google. Unlocks private analytics, algorithm insights & deeper data.</p>
-                  <Button onClick={handleFullConnect} className="w-full" variant="outline">
-                    <Link2 className="mr-2 h-4 w-4" /> Connect with Google
+                  <p className="text-sm text-muted-foreground">Sign in with Google. Unlocks private analytics, CTR, retention & revenue data.</p>
+                  <Button disabled className="w-full" variant="outline">
+                    <Lock className="mr-2 h-4 w-4" /> Coming Soon
                   </Button>
                 </div>
 

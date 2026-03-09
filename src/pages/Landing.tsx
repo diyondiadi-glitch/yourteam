@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Zap, Brain, TrendingUp, MessageSquare, Flame, BarChart3, ArrowRight, Chrome, Sparkles, Eye, Battery } from "lucide-react";
+import { Zap, Brain, TrendingUp, Sparkles, ArrowRight, Chrome, Flame, Globe, Search, Lock, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated, signInWithGoogle } from "@/lib/youtube-auth";
+import { isAuthenticated } from "@/lib/youtube-auth";
 import { enableDemoMode } from "@/lib/youtube-api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,6 +24,37 @@ const roles = [
   "Thumbnail Advisor", "Comment Manager", "AI Coach"
 ];
 
+const tiers = [
+  {
+    emoji: "🌐",
+    title: "Guest",
+    subtitle: "See demo data",
+    features: ["No signup needed", "Full demo channel", "Explore all tools", "Free forever"],
+    cta: "Try Free Demo",
+    highlight: false,
+    color: "var(--muted-foreground)",
+  },
+  {
+    emoji: "🔍",
+    title: "Quick Connect",
+    subtitle: "Paste channel URL",
+    features: ["No permissions needed", "All public features", "Your real data", "Free forever"],
+    cta: "Paste Your URL",
+    highlight: true,
+    color: "var(--primary)",
+  },
+  {
+    emoji: "🔐",
+    title: "Full Connect",
+    subtitle: "Coming soon",
+    features: ["Private analytics", "CTR & retention data", "Revenue insights", "Algorithm deep-dive"],
+    cta: "Coming Soon",
+    highlight: false,
+    color: "var(--muted-foreground)",
+    comingSoon: true,
+  },
+];
+
 export default function Landing() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -36,15 +67,6 @@ export default function Landing() {
     }
     if (isAuthenticated()) navigate("/dashboard", { replace: true });
   }, []);
-
-  async function handleGoogleLogin() {
-    setConnecting(true);
-    const result = await signInWithGoogle();
-    if (result.error) {
-      toast({ title: "Connection Issue", description: result.error, variant: "destructive" });
-      setConnecting(false);
-    }
-  }
 
   function handleDemo() {
     enableDemoMode();
@@ -98,18 +120,9 @@ export default function Landing() {
               <Sparkles className="h-5 w-5" /> Try Free Demo
               <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleGoogleLogin}
-              disabled={connecting}
-              className="h-14 px-8 text-base rounded-xl font-semibold gap-2 border-border/60 bg-background/50 backdrop-blur-sm"
-            >
-              <Chrome className="h-5 w-5" />
-              {connecting ? "Connecting..." : "Sign in with Google"}
-            </Button>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-4 opacity-70">No YouTube permissions needed · Just a Google account</p>
+          <p className="text-xs text-muted-foreground mt-4 opacity-70">No signup required · Works instantly</p>
         </motion.div>
 
         {/* Stats row */}
@@ -141,6 +154,94 @@ export default function Landing() {
             </span>
           ))}
         </motion.div>
+      </section>
+
+      {/* Three Tiers */}
+      <section className="relative z-10 pb-32 px-6">
+        <div className="max-w-5xl mx-auto">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-3xl sm:text-4xl font-bold text-center mb-4"
+          >
+            Choose Your Level
+          </motion.h2>
+          <p className="text-muted-foreground text-center mb-12 max-w-lg mx-auto">
+            Start free, go deeper when you're ready
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {tiers.map((tier, i) => (
+              <motion.div
+                key={tier.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12 }}
+                className={`relative rounded-2xl p-6 transition-all duration-300 ${tier.highlight ? "hover:-translate-y-1" : ""}`}
+                style={{
+                  background: "hsl(var(--background-card))",
+                  border: tier.highlight
+                    ? "2px solid hsl(var(--primary) / 0.4)"
+                    : "1px solid hsl(var(--border))",
+                  boxShadow: tier.highlight
+                    ? "0 0 40px hsl(var(--primary) / 0.1)"
+                    : "0 2px 8px rgba(0,0,0,0.2)",
+                }}
+              >
+                {tier.highlight && (
+                  <span
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full"
+                    style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
+                  >
+                    Recommended
+                  </span>
+                )}
+
+                <div className="text-center mb-5 pt-2">
+                  <span className="text-4xl block mb-2">{tier.emoji}</span>
+                  <h3 className="text-xl font-bold mb-1">{tier.title}</h3>
+                  <p className="text-sm" style={{ color: `hsl(${tier.color})` }}>{tier.subtitle}</p>
+                </div>
+
+                <ul className="space-y-2.5 mb-6">
+                  {tier.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-sm">
+                      <CheckCircle2
+                        className="h-4 w-4 shrink-0"
+                        style={{ color: tier.comingSoon ? "hsl(var(--muted-foreground) / 0.4)" : "hsl(var(--primary))" }}
+                      />
+                      <span className={tier.comingSoon ? "text-muted-foreground/60" : "text-foreground"}>
+                        {f}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                {tier.comingSoon ? (
+                  <Button disabled className="w-full h-11 rounded-xl font-semibold" variant="outline">
+                    <Lock className="mr-2 h-4 w-4" /> Coming Soon
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleDemo}
+                    className="w-full h-11 rounded-xl font-semibold"
+                    variant={tier.highlight ? "default" : "outline"}
+                    style={tier.highlight
+                      ? { background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }
+                      : undefined
+                    }
+                  >
+                    {tier.title === "Guest" && <Globe className="mr-2 h-4 w-4" />}
+                    {tier.title === "Quick Connect" && <Search className="mr-2 h-4 w-4" />}
+                    {tier.cta} {!tier.comingSoon && <ArrowRight className="ml-1 h-4 w-4" />}
+                  </Button>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* Feature preview cards */}
@@ -212,8 +313,8 @@ export default function Landing() {
           </motion.h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { step: "01", title: "Sign In", desc: "One click Google sign-in. No YouTube permissions. No scary warnings.", emoji: "🔐" },
-              { step: "02", title: "Paste Your Channel", desc: "Paste your channel URL. We fetch your public data in seconds.", emoji: "🔗" },
+              { step: "01", title: "Explore Demo", desc: "Jump in instantly with our demo channel. See every tool in action.", emoji: "🌐" },
+              { step: "02", title: "Paste Your Channel", desc: "Paste your channel URL. We fetch your public data in seconds.", emoji: "🔍" },
               { step: "03", title: "Get Clear Answers", desc: "AI analyses everything. You get exactly what to do next.", emoji: "🎯" },
             ].map((item, i) => (
               <motion.div

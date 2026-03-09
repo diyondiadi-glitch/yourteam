@@ -114,7 +114,9 @@ export default function ContextSidebar({ mode }: ContextSidebarProps) {
               <Tooltip key={item.url}>
                 <TooltipTrigger asChild>{button}</TooltipTrigger>
                 <TooltipContent side="right" className="text-xs">
-                  Requires Full Google Connect for private analytics
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="h-3 w-3" /> Coming Soon — requires Full Connect
+                  </span>
                 </TooltipContent>
               </Tooltip>
             );
