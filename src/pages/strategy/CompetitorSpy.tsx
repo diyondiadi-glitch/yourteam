@@ -34,6 +34,7 @@ export default function CompetitorSpy() {
   const [loadMsg, setLoadMsg] = useState("");
   const [error, setError] = useState("");
   const [competitor, setCompetitor] = useState<any>(null);
+  const [compVideos, setCompVideos] = useState<any[]>([]);
   const [report, setReport] = useState<any>(null);
 
   if (!isConnected) return null;
