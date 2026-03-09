@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, formatCount, type VideoData, type ChannelData } from "@/lib/youtube-api";
 import { callGroq } from "@/lib/groq-api";
 
@@ -22,7 +22,7 @@ export default function WarRoom() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
     intervalRef.current = setInterval(loadData, 60000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };

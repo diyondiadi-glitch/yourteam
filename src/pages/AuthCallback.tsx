@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
-import { storeToken, isAuthenticated } from "@/lib/youtube-auth";
+import { storeToken } from "@/lib/youtube-auth";
 
 export default function AuthCallback() {
   const navigate = useNavigate();

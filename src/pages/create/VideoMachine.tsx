@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import FeaturePage from "@/components/FeaturePage";
 import CopyButton from "@/components/CopyButton";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
 import { streamAI } from "@/lib/ai-service";
 
@@ -31,7 +31,7 @@ export default function VideoMachine() {
   const [step, setStep] = useState(0); // 0 = input, 1 = generating, 2 = done
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   async function generate() {

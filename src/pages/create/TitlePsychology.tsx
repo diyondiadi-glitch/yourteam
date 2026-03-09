@@ -4,7 +4,7 @@ import FeaturePage from "@/components/FeaturePage";
 import CopyButton from "@/components/CopyButton";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
 import { callAI, parseJsonFromAI } from "@/lib/ai-service";
 
@@ -32,7 +32,7 @@ export default function TitlePsychology() {
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout>();
 
-  useEffect(() => { if (!isAuthenticated()) navigate("/", { replace: true }); }, []);
+  useEffect(() => { if (!isChannelConnected()) navigate("/", { replace: true }); }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

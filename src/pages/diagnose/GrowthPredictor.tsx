@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext, formatCount } from "@/lib/youtube-api";
 import { callAI, parseJsonFromAI } from "@/lib/ai-service";
 
@@ -25,7 +25,7 @@ export default function GrowthPredictor() {
   const [data, setData] = useState<GrowthData | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadData();
   }, []);
 

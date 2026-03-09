@@ -6,7 +6,7 @@ import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
 import ShareInsight from "@/components/ShareInsight";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext, formatCount } from "@/lib/youtube-api";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 
@@ -53,7 +53,7 @@ export default function ChannelRoast() {
   const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   useEffect(() => {

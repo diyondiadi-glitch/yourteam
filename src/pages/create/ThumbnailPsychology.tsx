@@ -6,7 +6,7 @@ import LoadingSteps from "@/components/LoadingSteps";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
 import { callAI, parseJsonFromAI } from "@/lib/ai-service";
 
@@ -40,7 +40,7 @@ export default function ThumbnailPsychology() {
   const [data, setData] = useState<ThumbnailData | null>(null);
   const [showRedesigns, setShowRedesigns] = useState(false);
 
-  useEffect(() => { if (!isAuthenticated()) navigate("/", { replace: true }); }, []);
+  useEffect(() => { if (!isChannelConnected()) navigate("/", { replace: true }); }, []);
 
   async function analyse() {
     if (!description.trim()) return;

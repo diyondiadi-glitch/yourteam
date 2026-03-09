@@ -151,8 +151,7 @@ export async function callAI(
   }
 
   setStatus("limited");
-  // Return a graceful degraded response instead of throwing
-  return `Unable to generate AI insights right now. Your channel data has loaded successfully — please try this analysis again in 30 seconds.`;
+  return "AI is briefly resting between requests. Your channel data loaded successfully — please click Try Again in a few seconds.";
 }
 
 // ── Streaming ───────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import FeaturePage from "@/components/FeaturePage";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 
 interface Prediction {
@@ -50,7 +50,7 @@ export default function RetentionPredictor() {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); }
   }, []);
 
   async function predict() {

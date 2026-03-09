@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import FeaturePage from "@/components/FeaturePage";
 import CopyButton from "@/components/CopyButton";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 
 interface HookAnalysis {
@@ -23,7 +23,7 @@ export default function HookScore() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
   }, []);
 
   useEffect(() => {

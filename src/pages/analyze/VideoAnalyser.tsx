@@ -7,7 +7,7 @@ import CopyButton from "@/components/CopyButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
+import { isChannelConnected } from "@/lib/youtube-api";
 import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
 import { callAI, parseJsonFromAI } from "@/lib/ai-service";
 
@@ -49,7 +49,7 @@ export default function VideoAnalyser() {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); }
   }, []);
 
   const toggleSection = (key: string) => setExpandedSections(p => ({ ...p, [key]: !p[key] }));
