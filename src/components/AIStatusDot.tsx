@@ -8,19 +8,19 @@ export default function AIStatusDot() {
 
   useEffect(() => {
     const unsub = onAIStatusChange(setStatus);
-    return unsub;
+    return () => { unsub(); };
   }, []);
 
   const colors = {
     ok: "bg-success",
-    slow: "bg-warning",
+    slow: "bg-muted-foreground",
     limited: "bg-destructive",
   };
 
   const labels = {
     ok: "AI ready",
-    slow: "AI responding slowly",
-    limited: "AI cooling down — retry shortly",
+    slow: "AI switching models...",
+    limited: "Retrying...",
   };
 
   return (
