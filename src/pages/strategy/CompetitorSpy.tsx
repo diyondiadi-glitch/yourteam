@@ -189,7 +189,7 @@ action_plan: array of 3 strings`,
 
               <div className="flex items-center justify-center gap-8">
                 <div className="text-center">
-                  {channel?.avatar && <img src={channel.avatar} className="h-12 w-12 rounded-full mx-auto mb-2 ring-2 ring-offset-2 ring-offset-background" style={{ ringColor: "#4ade80" }} alt="" />}
+                  {channel?.avatar && <img src={channel.avatar} className="h-12 w-12 rounded-full mx-auto mb-2" style={{ boxShadow: "0 0 0 2px #4ade80" }} alt="" />}
                   <p className="text-sm font-bold text-foreground">{channel?.name || channel?.title}</p>
                   <p className="text-lg font-bold" style={{ color: "#4ade80" }}>{formatCount(channel?.subscribers || channel?.subscriberCount || 0)}</p>
                   <p className="text-xs text-muted-foreground">subscribers</p>
