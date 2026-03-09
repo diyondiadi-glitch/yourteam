@@ -1,12 +1,14 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { getConnectionLevel, FULL_CONNECT_FEATURES } from "@/lib/youtube-auth";
 import type { ModeId } from "./ModeSwitcher";
 import {
   AlertTriangle, Flame, HeartPulse, TrendingUp, Dna, Home,
   Timer, Sparkles, Type, Palette, PenLine, Radio,
   Lightbulb, Eye, Target, CheckCircle, Clock, Ghost, BadgeDollarSign, Handshake, Battery,
-  Bot, MessageSquare, Users, CalendarDays,
+  Bot, MessageSquare, Users, CalendarDays, Lock, BarChart3, Zap,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NavItem {
   title: string;
@@ -66,21 +68,29 @@ export default function ContextSidebar({ mode }: ContextSidebarProps) {
   const navigate = useNavigate();
   const items = sidebarItems[mode] || [];
   const colorVar = modeColors[mode];
+  const connectionLevel = getConnectionLevel();
+
+  const isLocked = (url: string) => {
+    if (connectionLevel === "full") return false;
+    return FULL_CONNECT_FEATURES.some(f => url.startsWith(f));
+  };
 
   return (
     <aside className="w-52 shrink-0 border-r border-border/30 h-full overflow-y-auto scrollbar-thin py-3 hidden md:block" style={{ background: "hsl(var(--sidebar-background))" }}>
       <div className="px-3 space-y-0.5">
         {items.map((item, i) => {
           const active = location.pathname === item.url;
-          return (
+          const locked = isLocked(item.url);
+          
+          const button = (
             <motion.button
               key={item.url}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.03 }}
-              onClick={() => navigate(item.url)}
+              onClick={() => !locked && navigate(item.url)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-150 relative ${
-                active ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                active ? "text-foreground font-medium" : locked ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
               }`}
               style={active ? { backgroundColor: `hsl(var(${colorVar}) / 0.08)` } : undefined}
             >
@@ -92,11 +102,25 @@ export default function ContextSidebar({ mode }: ContextSidebarProps) {
               )}
               <item.icon
                 className="h-4 w-4 shrink-0"
-                style={active ? { color: `hsl(var(${colorVar}))` } : undefined}
+                style={active ? { color: `hsl(var(${colorVar}))` } : locked ? { opacity: 0.5 } : undefined}
               />
-              <span className="truncate">{item.title}</span>
+              <span className="truncate flex-1">{item.title}</span>
+              {locked && <Lock className="h-3 w-3 shrink-0 opacity-50" />}
             </motion.button>
           );
+
+          if (locked) {
+            return (
+              <Tooltip key={item.url}>
+                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">
+                  Requires Full Google Connect for private analytics
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return button;
         })}
       </div>
     </aside>
