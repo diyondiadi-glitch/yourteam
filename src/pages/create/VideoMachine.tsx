@@ -8,7 +8,7 @@ import CopyButton from "@/components/CopyButton";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { isAuthenticated } from "@/lib/youtube-auth";
 import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
-import { streamGroq } from "@/lib/groq-api";
+import { streamAI } from "@/lib/ai-service";
 
 const SECTIONS = [
   { key: "hook", label: "🎣 Hook Script (First 60 Seconds)" },
