@@ -269,7 +269,7 @@ export default function Landing() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Unlock private analytics: CTR, retention, impressions, revenue estimates
+                  Unlock CTR, retention rate, impressions, and revenue data
                 </p>
               </motion.div>
             </motion.div>
