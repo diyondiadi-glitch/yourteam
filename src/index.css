@@ -11,6 +11,17 @@
     --background-section: 240 6% 7%;
     --background-card: 240 5% 9%;
     --foreground: 0 0% 100%;
+    
+    /* CreatorBrain design system */
+    --cb-page: 240 7% 3%;
+    --cb-section: 240 6% 7%;
+    --cb-card: 240 5% 9%;
+    --cb-border: 0 0% 100% / 0.06;
+    --cb-border-hover: 0 0% 100% / 0.12;
+    --cb-glow-yellow: 0 0 28px rgba(250,204,21,0.10);
+    --cb-glow-green: 0 0 20px rgba(74,222,128,0.08);
+    --cb-glow-red: 0 0 20px rgba(248,113,113,0.08);
+    --cb-glow-blue: 0 0 20px rgba(96,165,250,0.08);
 
     --card: 240 5% 9%;
     --card-foreground: 0 0% 100%;

@@ -20,12 +20,13 @@ export default function Dashboard() {
     bestDay,
     uploadFrequency,
   } = useChannelData();
-  const [verdict, setVerdict] = useState("");
+  const [verdict, setVerdict] = useState("Analysing your channel...");
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
 
   useEffect(() => {
     if (!isConnected) return;
     if (channel && videos.length > 0) {
+      setVerdict("Analysing your channel..."); // Immediate default
       generateVerdict({
         title: channel.name,
         subscriberCount: channel.subscribers,
@@ -35,7 +36,7 @@ export default function Dashboard() {
           publishedAt: v.publishedAt,
         })),
       })
-        .then(setVerdict)
+        .then((v) => setVerdict(v || "Focus on your next upload — consistency wins."))
         .catch(() => setVerdict("Focus on your next upload — consistency wins."));
     }
   }, [channel, videos, isConnected]);

@@ -95,46 +95,70 @@ export async function fetchCompleteChannelData(
 
   let channelData: any = null;
 
+  // Try handle-based fetch first
   if (handle) {
     const handleToTry = handle.startsWith("@") ? handle.substring(1) : handle;
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&forHandle=${handleToTry}&key=${YT_API_KEY}`
-    );
-    const data = await res.json();
-    if (data.error?.code === 403) {
-      throw new Error("API quota exceeded. Please try again tomorrow.");
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&forHandle=${handleToTry}&key=${YT_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.error?.code === 403) {
+        throw new Error("API quota exceeded. Please try again tomorrow.");
+      }
+      channelData = data.items?.[0] || null;
+    } catch (err: any) {
+      if (err.message?.includes("quota")) throw err;
+      // Continue to next method
     }
-    channelData = data.items?.[0] || null;
+    // Always advance progress even on failure
+    if (!channelData) {
+      onProgress?.({ step: "finding", message: "Searching for channel...", percent: 8 });
+    }
   }
 
+  // Try channel ID fetch
   if (!channelData && channelId) {
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}&key=${YT_API_KEY}`
-    );
-    const data = await res.json();
-    if (data.error?.code === 403) {
-      throw new Error("API quota exceeded. Please try again tomorrow.");
-    }
-    channelData = data.items?.[0] || null;
-  }
-
-  if (!channelData && handle) {
-    const searchHandle = handle.replace("@", "");
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${searchHandle}&key=${YT_API_KEY}`
-    );
-    const data = await res.json();
-    if (data.error?.code === 403) {
-      throw new Error("API quota exceeded. Please try again tomorrow.");
-    }
-    const firstResult = data.items?.[0];
-    if (firstResult) {
-      channelId = firstResult.snippet.channelId;
-      const channelRes = await fetch(
+    try {
+      const res = await fetch(
         `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}&key=${YT_API_KEY}`
       );
-      const channelDataRes = await channelRes.json();
-      channelData = channelDataRes.items?.[0] || null;
+      const data = await res.json();
+      if (data.error?.code === 403) {
+        throw new Error("API quota exceeded. Please try again tomorrow.");
+      }
+      channelData = data.items?.[0] || null;
+    } catch (err: any) {
+      if (err.message?.includes("quota")) throw err;
+    }
+    if (!channelData) {
+      onProgress?.({ step: "finding", message: "Searching by name...", percent: 10 });
+    }
+  }
+
+  // Try search as last resort
+  if (!channelData && handle) {
+    onProgress?.({ step: "finding", message: "Searching YouTube...", percent: 12 });
+    const searchHandle = handle.replace("@", "");
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${searchHandle}&key=${YT_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.error?.code === 403) {
+        throw new Error("API quota exceeded. Please try again tomorrow.");
+      }
+      const firstResult = data.items?.[0];
+      if (firstResult) {
+        channelId = firstResult.snippet.channelId;
+        const channelRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}&key=${YT_API_KEY}`
+        );
+        const channelDataRes = await channelRes.json();
+        channelData = channelDataRes.items?.[0] || null;
+      }
+    } catch (err: any) {
+      if (err.message?.includes("quota")) throw err;
     }
   }
 
