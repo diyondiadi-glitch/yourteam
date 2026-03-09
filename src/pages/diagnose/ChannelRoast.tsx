@@ -127,7 +127,7 @@ export default function ChannelRoast() {
       }} />
 
       <div className="relative p-6 md:p-8 max-w-[920px] mx-auto">
-        <DemoBanner />
+        
 
         {/* Header */}
         <motion.div
