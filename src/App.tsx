@@ -87,6 +87,9 @@ const App = () => (
           <Route path="/grow/audience-intelligence" element={withLayout(<AudienceIntelligence />)} />
           <Route path="/grow/launch-plan" element={withLayout(<LaunchPlan />)} />
 
+          {/* ANALYZE (Full Connect) */}
+          <Route path="/analyze/subscriber-converter" element={withLayout(<SubscriberConverter />)} />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
