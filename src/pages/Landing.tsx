@@ -230,7 +230,7 @@ export default function Landing() {
                   </Button>
                 ) : (
                   <Button
-                    onClick={handleDemo}
+                    onClick={tier.title === "Quick Connect" ? handleQuickConnect : handleDemo}
                     className="w-full h-11 rounded-xl font-semibold"
                     variant={tier.highlight ? "default" : "outline"}
                     style={tier.highlight

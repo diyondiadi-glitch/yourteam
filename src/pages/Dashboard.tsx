@@ -15,12 +15,20 @@ import type { VideoData } from "@/lib/youtube-api";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { channel, videos, loading, error, isDemo, avgViews, reload } = useChannelData(10);
   const [verdict, setVerdict] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
 
   useEffect(() => {
+    // If coming from Quick Connect button on landing page, always show onboarding
+    const onboardingParam = searchParams.get("onboarding");
+    if (onboardingParam === "quick") {
+      setShowOnboarding(true);
+      return;
+    }
+    // Otherwise, check authentication
     if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
     if (!hasChannelConnected()) { setShowOnboarding(true); }
   }, []);
