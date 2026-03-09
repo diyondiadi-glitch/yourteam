@@ -73,6 +73,11 @@ export default function Landing() {
     navigate("/dashboard", { replace: true });
   }
 
+  function handleQuickConnect() {
+    // Navigate to dashboard with onboarding flag - shows URL input, NOT demo
+    navigate("/dashboard?onboarding=quick", { replace: true });
+  }
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Ambient glow */}
