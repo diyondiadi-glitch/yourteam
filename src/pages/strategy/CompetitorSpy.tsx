@@ -45,9 +45,20 @@ export default function CompetitorSpy() {
     setReport(null);
     setCompetitor(null);
 
+    // Clean the input into a bare handle or channel name
+    let cleanQuery = query.trim()
+      .replace("https://", "")
+      .replace("http://", "")
+      .replace("www.youtube.com/", "")
+      .replace("youtube.com/", "")
+      .replace("@", "")
+      .split("/")[0]
+      .split("?")[0]
+      .trim();
+
     try {
       setLoadMsg("🔍 Finding competitor channel...");
-      const compId = await searchChannel(query);
+      const compId = await searchChannel(cleanQuery);
       if (!compId) throw new Error("Channel not found. Try their exact @handle.");
 
       setLoadMsg("📊 Loading competitor data...");
