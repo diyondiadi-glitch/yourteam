@@ -2,12 +2,20 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Map } from "lucide-react";
 import FeaturePage from "@/components/FeaturePage";
-import LoadingSteps from "@/components/LoadingSteps";
+import GameLoader from "@/components/GameLoader";
 import CopyButton from "@/components/CopyButton";
-import { useNavigate } from "react-router-dom";
-import { isAuthenticated } from "@/lib/youtube-auth";
-import { getMyChannel, getRecentVideos, getChannelContext, formatCount } from "@/lib/youtube-api";
-import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
+import { useChannelData } from "@/hooks/useChannelData";
+import { formatCount } from "@/lib/youtube-api";
+import { callAI, parseJsonSafely } from "@/lib/ai-service";
+import { friendlyError } from "@/lib/errors";
+
+const s = (v: any): string => {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return v.join(", ");
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+};
 
 interface AlgorithmData {
   best_days: { day: string; avg_views: number }[];
@@ -22,57 +30,56 @@ interface AlgorithmData {
 const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function AlgorithmMap() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [loadStep, setLoadStep] = useState(0);
+  const { channel, videos, channelContext, loading: dataLoading } = useChannelData();
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [data, setData] = useState<AlgorithmData | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isAuthenticated()) { navigate("/", { replace: true }); return; }
-    loadData();
-  }, []);
+    if (channel && videos.length > 0 && !data) loadData();
+  }, [channel, videos]);
 
   async function loadData() {
+    setLoading(true);
+    setError("");
     try {
-      setLoadStep(0);
-      const ch = await getMyChannel();
-      const vids = await getRecentVideos(ch.id, 20);
-      setLoadStep(1);
-      const context = getChannelContext(ch, vids);
+      setProgress(20);
 
       const dayStats: Record<string, { total: number; count: number }> = {};
       const timeStats: Record<string, { total: number; count: number }> = {};
-      vids.forEach(v => {
+      videos.forEach(v => {
         const d = new Date(v.publishedAt);
         const day = d.toLocaleDateString("en-US", { weekday: "long" });
         const hour = d.getHours();
         const time = hour < 12 ? "Morning" : hour < 17 ? "Afternoon" : "Evening";
         dayStats[day] = dayStats[day] || { total: 0, count: 0 };
-        dayStats[day].total += v.viewCount;
+        dayStats[day].total += (v.views || v.viewCount || 0);
         dayStats[day].count++;
         timeStats[time] = timeStats[time] || { total: 0, count: 0 };
-        timeStats[time].total += v.viewCount;
+        timeStats[time].total += (v.views || v.viewCount || 0);
         timeStats[time].count++;
       });
 
-      const patternData = `Upload day performance:\n${Object.entries(dayStats).map(([d, s]) => `${d}: avg ${Math.round(s.total / s.count)} views (${s.count} videos)`).join("\n")}\n\nUpload time performance:\n${Object.entries(timeStats).map(([t, s]) => `${t}: avg ${Math.round(s.total / s.count)} views (${s.count} videos)`).join("\n")}`;
+      const patternData = `Upload day performance:\n${Object.entries(dayStats).map(([d, st]) => `${d}: avg ${Math.round(st.total / st.count)} views (${st.count} videos)`).join("\n")}\n\nUpload time performance:\n${Object.entries(timeStats).map(([t, st]) => `${t}: avg ${Math.round(st.total / st.count)} views (${st.count} videos)`).join("\n")}`;
 
-      setLoadStep(2);
-      const res = await callGroq(
+      setProgress(50);
+      const res = await callAI(
         `You are a YouTube algorithm pattern analyst. Based on this creator's data, build their personal algorithm map. Return JSON: {best_days: [{day: string, avg_views: number}], best_times: [{time: string, avg_views: number}], best_lengths: [{range: string, avg_views: number}], best_topics: [{topic: string, avg_views: number}], sweet_spot: string (one paragraph describing ideal video formula), biggest_insight: string, biggest_change: string}`,
-        `${context}\n\n${patternData}\n\nBuild the algorithm map.`
+        `${channelContext}\n\n${patternData}\n\nBuild the algorithm map.`
       );
+      setProgress(80);
 
-      const parsed = parseJsonFromResponse(res);
+      const parsed = parseJsonSafely(res);
       if (parsed) setData(parsed);
+      setProgress(100);
     } catch (err) {
-      console.error(err);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
   }
 
-  // Heatmap for days
   function DayHeatmap({ days }: { days: { day: string; avg_views: number }[] }) {
     const dayMap: Record<string, number> = {};
     days.forEach(d => {
@@ -83,7 +90,7 @@ export default function AlgorithmMap() {
 
     return (
       <div className="cb-card">
-        <h3 className="t-section mb-4">📅 BEST UPLOAD DAYS</h3>
+        <h3 className="t-section mb-4">BEST UPLOAD DAYS</h3>
         <div className="grid grid-cols-7 gap-2">
           {ALL_DAYS.map(d => {
             const val = dayMap[d] || 0;
@@ -119,7 +126,6 @@ export default function AlgorithmMap() {
     );
   }
 
-  // Time segments
   function TimeSegments({ times }: { times: { time: string; avg_views: number }[] }) {
     const segments = ["Morning", "Afternoon", "Evening", "Night"];
     const timeMap: Record<string, number> = {};
@@ -129,7 +135,7 @@ export default function AlgorithmMap() {
 
     return (
       <div className="cb-card">
-        <h3 className="t-section mb-4">🕐 BEST UPLOAD TIMES</h3>
+        <h3 className="t-section mb-4">BEST UPLOAD TIMES</h3>
         <div className="grid grid-cols-2 gap-3">
           {segments.map(seg => {
             const val = timeMap[seg] || 0;
@@ -154,19 +160,18 @@ export default function AlgorithmMap() {
     );
   }
 
-  // Ranked list
-  function RankedList({ items, label, emoji }: { items: { label: string; value: number }[]; label: string; emoji: string }) {
+  function RankedList({ items, label }: { items: { label: string; value: number }[]; label: string }) {
     const max = Math.max(...items.map(i => i.value), 1);
     return (
       <div className="cb-card">
-        <h3 className="t-section mb-4">{emoji} {label}</h3>
+        <h3 className="t-section mb-4">{label}</h3>
         <div className="space-y-3">
           {items.map((item, i) => (
             <div key={item.label} className="flex items-center gap-3">
               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                 i === 0 ? 'bg-primary/20 text-primary' : 'bg-secondary text-muted-foreground'
               }`}>{i + 1}</span>
-              <span className="text-sm flex-1 truncate">{item.label}</span>
+              <span className="text-sm flex-1 truncate">{s(item.label)}</span>
               <div className="w-24 h-2 bg-secondary rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
@@ -183,48 +188,53 @@ export default function AlgorithmMap() {
     );
   }
 
-  if (loading) {
+  if (dataLoading || loading) {
     return (
       <FeaturePage emoji="🧬" title="Your Algorithm DNA" description="The algorithm feels random? Let's map YOUR personal patterns.">
-        <LoadingSteps steps={["Fetching all video data...", "Detecting patterns...", "Building your algorithm map..."]} currentStep={loadStep} />
+        <GameLoader progress={progress} type="channel" message="Mapping your algorithm patterns..." />
       </FeaturePage>
     );
   }
 
   return (
     <FeaturePage emoji="🧬" title="Your Algorithm DNA" description="The algorithm feels random? Let's map YOUR personal patterns.">
+      {error && (
+        <div className="cb-card cb-card-problem mb-6">
+          <p className="text-sm text-foreground">{error}</p>
+          <button onClick={loadData} className="text-xs text-primary mt-2 underline">Try Again</button>
+        </div>
+      )}
       {data && (
         <div className="space-y-6">
           <div className="grid md:grid-cols-2 gap-5">
             {data.best_days?.length > 0 && <DayHeatmap days={data.best_days} />}
             {data.best_times?.length > 0 && <TimeSegments times={data.best_times} />}
             {data.best_topics?.length > 0 && (
-              <RankedList label="BEST TOPICS" emoji="📌" items={data.best_topics.map(t => ({ label: t.topic, value: t.avg_views }))} />
+              <RankedList label="BEST TOPICS" items={data.best_topics.map(t => ({ label: t.topic, value: t.avg_views }))} />
             )}
             {data.best_lengths?.length > 0 && (
-              <RankedList label="BEST VIDEO LENGTHS" emoji="⏱️" items={data.best_lengths.map(l => ({ label: l.range, value: l.avg_views }))} />
+              <RankedList label="BEST VIDEO LENGTHS" items={data.best_lengths.map(l => ({ label: l.range, value: l.avg_views }))} />
             )}
           </div>
 
-          {/* Sweet Spot — large, glowing */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="cb-card-glow p-8"
           >
-            <p className="t-section text-primary mb-3">🎯 YOUR ALGORITHM SWEET SPOT</p>
-            <p className="text-base leading-relaxed font-medium">{data.sweet_spot}</p>
-            <CopyButton text={data.sweet_spot} className="mt-4" />
+            <p className="t-section text-primary mb-3">YOUR ALGORITHM SWEET SPOT</p>
+            <p className="text-base leading-relaxed font-medium">{s(data.sweet_spot)}</p>
+            <CopyButton text={s(data.sweet_spot)} className="mt-4" />
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-5">
             <div className="cb-card">
-              <p className="t-section text-info mb-2">💡 BIGGEST INSIGHT</p>
-              <p className="text-sm leading-relaxed">{data.biggest_insight}</p>
+              <p className="t-section text-info mb-2">BIGGEST INSIGHT</p>
+              <p className="text-sm leading-relaxed">{s(data.biggest_insight)}</p>
             </div>
             <div className="cb-card">
-              <p className="t-section text-warning mb-2">🔄 ONE CHANGE TO MAKE</p>
-              <p className="text-sm leading-relaxed">{data.biggest_change}</p>
+              <p className="t-section text-warning mb-2">ONE CHANGE TO MAKE</p>
+              <p className="text-sm leading-relaxed">{s(data.biggest_change)}</p>
             </div>
           </div>
         </div>
