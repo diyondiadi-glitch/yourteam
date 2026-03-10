@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Eye, Target, Crosshair, ArrowRight, BarChart3, Swords,
   Brain, Zap, TrendingDown, TrendingUp, Sparkles, Crown,
-  Lightbulb, Shield, ThumbsUp, Loader2, AlertCircle
+  Lightbulb, Shield, ThumbsUp, Loader2, AlertCircle, Copy, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useChannelData } from "@/hooks/useChannelData";
 import { searchChannel, getChannelById, getChannelVideos, formatCount } from "@/lib/youtube-api";
 import { callAI, parseJsonSafely } from "@/lib/ai-service";
+import { friendlyError } from "@/lib/errors";
 
 const s = (v: any): string => {
   if (v === null || v === undefined) return "";
