@@ -134,16 +134,18 @@ ${myContext} ${compContext}`
           <h2 className="t-section text-foreground mb-2">Enter Competitor Channel</h2>
           <p className="text-sm text-muted-foreground mb-6">Channel name, @handle, or full YouTube URL. We&apos;ll run a full intel sweep.</p>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Input
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !loading && analyze()}
               placeholder="@technoblade, MrBeast, or paste any YouTube URL"
               className="h-13 rounded-xl text-base"
+              inputMode="url"
+              autoComplete="off"
               style={{ background: "rgba(0,0,0,0.4)", borderColor: "rgba(167,139,250,0.3)", height: "52px" }}
             />
-            <Button onClick={analyze} disabled={loading || !query.trim()} className="h-[52px] px-6 rounded-xl font-bold" style={{ background: "linear-gradient(135deg, #7c3aed, #a78bfa)" }}>
+            <Button onClick={analyze} disabled={loading || !query.trim()} className="h-[52px] px-6 rounded-xl font-bold shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #a78bfa)" }}>
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Run Intel <ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
           </div>
