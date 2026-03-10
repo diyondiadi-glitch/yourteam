@@ -177,11 +177,11 @@ ${myContext} ${compContext}`
               <p className="t-label mb-3" style={{ color: "#facc15" }}>⚔️ BATTLE VERDICT</p>
               <p className="text-xl font-bold text-foreground mb-6">{s(report.battle_verdict)}</p>
 
-              <div className="flex items-center justify-center gap-8">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-8">
                 <div className="text-center">
-                  {channel?.avatar && <img src={channel.avatar} className="h-12 w-12 rounded-full mx-auto mb-2" style={{ boxShadow: "0 0 0 2px #4ade80" }} alt="" />}
-                  <p className="text-sm font-bold text-foreground">{channel?.name || channel?.title}</p>
-                  <p className="text-lg font-bold" style={{ color: "#4ade80" }}>{formatCount(channel?.subscribers || channel?.subscriberCount || 0)}</p>
+                  {myChannel?.avatar && <img src={myChannel.avatar} className="h-12 w-12 rounded-full mx-auto mb-2" style={{ boxShadow: "0 0 0 2px #4ade80" }} alt="" />}
+                  <p className="text-sm font-bold text-foreground">{myChannel?.name || myChannel?.title}</p>
+                  <p className="text-lg font-bold" style={{ color: "#4ade80" }}>{formatCount(myChannel?.subscribers || myChannel?.subscriberCount || 0)}</p>
                   <p className="text-xs text-muted-foreground">subscribers</p>
                 </div>
                 <div className="text-center">
