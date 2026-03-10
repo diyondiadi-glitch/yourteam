@@ -362,3 +362,18 @@
     scrollbar-color: hsl(var(--border)) transparent;
   }
 }
+
+/* Mobile touch targets */
+button, a, [role="button"] { min-height: 44px; min-width: 44px; }
+
+/* Prevent horizontal scroll */
+body { overflow-x: hidden; }
+
+/* Mobile padding */
+@media (max-width: 768px) {
+  .p-6, .p-8 { padding: 16px !important; }
+  .max-w-\[960px\], .max-w-\[920px\] { max-width: 100% !important; }
+  .text-6xl, .t-hero { font-size: 36px !important; }
+  .t-page { font-size: 32px !important; }
+  .page-content { padding-bottom: 80px; }
+}
