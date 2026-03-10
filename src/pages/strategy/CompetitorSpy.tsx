@@ -50,21 +50,21 @@ export default function CompetitorSpy() {
     setCompetitor(null);
     setCompVideos([]);
 
-    // Clean the input into a bare handle or channel name
-    let cleanQuery = query.trim()
-      .replace("https://", "")
-      .replace("http://", "")
-      .replace("www.youtube.com/", "")
-      .replace("youtube.com/", "")
-      .replace("@", "")
-      .split("/")[0]
-      .split("?")[0]
-      .trim();
-
     try {
+      const stored = localStorage.getItem("yt_channel_data");
+      if (!stored) { navigate("/"); return; }
+      const myData = JSON.parse(stored);
+      const myVids = myData.videos?.slice(0, 8) || [];
+      setMyChannel(myData);
+
       setLoadMsg("🔍 Finding competitor channel...");
+      const cleanQuery = query.trim()
+        .replace("https://", "").replace("http://", "")
+        .replace("www.youtube.com/", "").replace("youtube.com/", "")
+        .replace("@", "").split("/")[0].split("?")[0].trim();
+
       const compId = await searchChannel(cleanQuery);
-      if (!compId) throw new Error("Channel not found. Try their exact @handle.");
+      if (!compId) throw new Error("Channel not found. Try their @handle directly.");
 
       setLoadMsg("📊 Loading competitor data...");
       const comp = await getChannelById(compId);
@@ -74,58 +74,39 @@ export default function CompetitorSpy() {
       const compVids = await getChannelVideos(compId, 10);
       setCompVideos(compVids);
 
-      const myContext = `MY CHANNEL:\nName: ${channel?.name}\nSubscribers: ${formatCount(channel?.subscribers || 0)}\nAvg Views: ${formatCount(channel?.avgViews || 0)}\nUpload Frequency: ${channel?.uploadFrequency}\nRecent Videos:\n${videos.slice(0, 8).map(v => `- "${v.title}" → ${formatCount(v.views)} views, ${v.likes} likes`).join("\n")}`;
+      const myContext = `MY CHANNEL: ${myData.name}, ${myData.subscribers} subs, avg ${myData.avgViews} views. Videos: ${myVids.map((v: any) => `"${v.title}" ${v.views} views`).join(", ")}`;
+      const compContext = `COMPETITOR: ${comp.title}, ${comp.subscriberCount} subs. Videos: ${compVids.slice(0, 6).map((v: any) => `"${v.title}" ${v.viewCount || v.views} views`).join(", ")}`;
 
-      const compContext = `COMPETITOR CHANNEL:\nName: ${comp.title || comp.name}\nSubscribers: ${formatCount(comp.subscriberCount || comp.subscribers || 0)}\nTotal Views: ${formatCount(comp.viewCount || comp.totalViews || 0)}\nRecent Videos:\n${compVids.slice(0, 8).map((v: any) => `- "${v.title}" → ${formatCount(v.viewCount || v.views || 0)} views`).join("\n")}`;
-
-      setLoadMsg("🤖 Running battle analysis...");
-
-      // Call 1 — strengths, gaps, titles
-      const result1 = await callAI(
-        `You are a YouTube analyst. Return ONLY raw JSON, nothing else. No markdown. No explanation. Just the JSON object starting with {`,
-        `Compare these channels and return this exact JSON:
-{"battle_verdict":"one sentence who is winning and why","they_win_at":["strength1","strength2","strength3"],"you_win_at":["advantage1","advantage2","advantage3"],"steal_these":[{"strength":"what they do","how_to_steal":"how to copy it"},{"strength":"","how_to_steal":""},{"strength":"","how_to_steal":""}],"exploit_these":[{"weakness":"their weakness","how_to_exploit":"how to exploit it"},{"weakness":"","how_to_exploit":""}],"topic_gaps":["topic1","topic2","topic3","topic4"],"title_formula":{"their_pattern":"their title formula","your_pattern":"your title formula","examples":["example1","example2","example3"]},"first_mover_topics":["topic1","topic2","topic3"],"action_plan":["action1","action2","action3"]}
-
-${myContext}
-${compContext}`
-      );
-
-      // Call 2 — predictions and stats
-      const result2 = await callAI(
-        `You are a YouTube analyst. Return ONLY raw JSON, nothing else. No markdown. No explanation. Just the JSON object starting with {`,
-        `Compare these channels and return this exact JSON:
-{"best_video":{"title":"their best video title","views":0,"why_it_worked":"reason"},"weakest_videos":[{"title":"weak video","views":0,"why_it_failed":"reason"},{"title":"","views":0,"why_it_failed":""}],"growth_rate":{"yours":"your trajectory","theirs":"their trajectory","who_is_faster":"winner and why"},"engagement_vs_views":{"yours":"your engagement rate","theirs":"their engagement rate","weakness":"who has weak engagement"},"upload_frequency":{"yours":"your frequency","theirs":"their frequency","recommendation":"what to do"},"thumbnail_style":{"their_style":"their approach","your_style":"your approach","recommendation":"what to change"},"if_you_posted":{"topic":"their best topic for your channel","predicted_views":0,"reasoning":"why this would work"}}
-
-${myContext}
-${compContext}`
-      );
-
-      // Parse both and merge
       function extractJson(text: string): any {
         if (!text) return null;
         try { return JSON.parse(text); } catch {}
         const cleaned = text.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim();
         try { return JSON.parse(cleaned); } catch {}
-        const start = cleaned.indexOf("{");
-        const end = cleaned.lastIndexOf("}");
-        if (start !== -1 && end !== -1) {
-          try { return JSON.parse(cleaned.slice(start, end + 1)); } catch {}
-        }
+        const i = cleaned.indexOf("{"), j = cleaned.lastIndexOf("}");
+        if (i !== -1 && j !== -1) { try { return JSON.parse(cleaned.slice(i, j + 1)); } catch {} }
         return null;
       }
 
-      const parsed1 = extractJson(result1);
-      const parsed2 = extractJson(result2);
+      setLoadMsg("🤖 Running battle analysis...");
+      const r1 = await callAI(
+        "Return ONLY raw JSON starting with {. No markdown. No explanation.",
+        `Fill this JSON using the channel data below. Every field required.
+{"battle_verdict":"","they_win_at":["","",""],"you_win_at":["","",""],"steal_these":[{"strength":"","how_to_steal":""},{"strength":"","how_to_steal":""},{"strength":"","how_to_steal":""}],"exploit_these":[{"weakness":"","how_to_exploit":""},{"weakness":"","how_to_exploit":""}],"topic_gaps":["","","",""],"title_formula":{"their_pattern":"","your_pattern":"","examples":["","",""]},"first_mover_topics":["","",""],"action_plan":["","",""]}
+${myContext} ${compContext}`
+      );
 
-      if (!parsed1 && !parsed2) {
-        setError("AI couldn't parse the data. Please try again.");
-        setLoading(false);
-        return;
-      }
+      const r2 = await callAI(
+        "Return ONLY raw JSON starting with {. No markdown. No explanation.",
+        `Fill this JSON using the channel data below. Every field required.
+{"best_video":{"title":"","views":0,"why_it_worked":""},"weakest_videos":[{"title":"","views":0,"why_it_failed":""},{"title":"","views":0,"why_it_failed":""}],"growth_rate":{"yours":"","theirs":"","who_is_faster":""},"engagement_vs_views":{"yours":"","theirs":"","weakness":""},"upload_frequency":{"yours":"","theirs":"","recommendation":""},"thumbnail_style":{"their_style":"","your_style":"","recommendation":""},"if_you_posted":{"topic":"","predicted_views":0,"reasoning":""}}
+${myContext} ${compContext}`
+      );
 
-      setReport({ ...(parsed1 || {}), ...(parsed2 || {}) });
+      const p1 = extractJson(r1), p2 = extractJson(r2);
+      if (!p1 && !p2) { setError("Analysis failed to parse — please try again."); setLoading(false); return; }
+      setReport({ ...(p1 || {}), ...(p2 || {}) });
     } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
