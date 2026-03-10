@@ -37,6 +37,8 @@ export default function CompetitorSpy() {
   const [competitor, setCompetitor] = useState<any>(null);
   const [compVideos, setCompVideos] = useState<any[]>([]);
   const [report, setReport] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+  const [myChannel, setMyChannel] = useState<any>(channel);
 
   if (!isConnected) return null;
 
