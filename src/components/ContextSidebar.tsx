@@ -75,6 +75,26 @@ export default function ContextSidebar({ mode }: ContextSidebarProps) {
 
   return (
     <aside className="w-52 shrink-0 border-r border-border/30 h-full overflow-y-auto scrollbar-thin py-3 hidden md:block" style={{ background: "hsl(var(--sidebar-background))" }}>
+      {/* START HERE — first visit only */}
+      {!localStorage.getItem("cb_onboarded") && (
+        <div className="px-3 mb-4 pb-3 border-b border-border/30">
+          <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: "#facc15" }}>⚡ START HERE</p>
+          {[
+            { label: "Spy on a Competitor", path: "/strategy/competitor-spy", color: "#a78bfa" },
+            { label: "Why Did My Video Die", path: "/diagnose/video-death", color: "#f87171" },
+            { label: "What To Make Next", path: "/create/video-machine", color: "#60a5fa" },
+          ].map(item => (
+            <button
+              key={item.path}
+              onClick={() => { navigate(item.path); localStorage.setItem("cb_onboarded", "true"); }}
+              className="w-full text-left text-xs font-medium px-3 py-2 rounded-lg mb-1 transition-colors hover:bg-accent/50"
+              style={{ color: item.color }}
+            >
+              → {item.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="px-3 space-y-0.5">
         {items.map((item, i) => {
           const active = location.pathname === item.url;
