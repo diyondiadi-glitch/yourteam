@@ -42,75 +42,37 @@ export default function VideoDeath() {
   }, [isConnected, videos.length]);
 
   async function runAutopsy(videoId: string) {
-    const selectedVideo = videos.find(v => v.id === videoId);
-    if (!selectedVideo || !channel) return;
+    const video = videos.find(v => v.id === videoId);
+    if (!video || !channel) return;
 
     setSelectedId(videoId);
     setLoading(true);
     setResult(null);
 
-    const avgViews = Math.round(
-      videos.reduce((sum: number, v: any) => sum + (Number(v.views) || 0), 0) / (videos.length || 1)
-    );
-
     try {
-      const systemPrompt = `You are a brutally honest YouTube analyst. Return ONLY valid JSON, no markdown, no explanation, no text before or after the JSON object.`;
+      const prompt = `You are a YouTube growth expert performing a "Video Autopsy". Analyze why this video underperformed. 
+      Return JSON with this structure:
+      {
+        "killer": "One bold sentence explaining the primary reason for failure",
+        "diagnosis": [
+          {"reason": "Reason 1", "evidence": "Stats evidence", "fix": "Specific fix"},
+          {"reason": "Reason 2", "evidence": "Stats evidence", "fix": "Specific fix"},
+          {"reason": "Reason 3", "evidence": "Stats evidence", "fix": "Specific fix"}
+        ],
+        "resurrection": ["Step 1", "Step 2", "Step 3"]
+      }
+      Never claim to have retention data. Use title-to-views ratio and comment sentiment as evidence.`;
 
-      const userPrompt = `Diagnose exactly why this specific video underperformed. Use the real numbers provided — do not invent data. 
+      const aiResponse = await callAI(prompt, 
+        `Video: "${video.title}"
+        Views: ${video.views} (Channel Avg: ${Math.round(avgViews)})
+        Likes: ${video.likes}
+        Comments: ${video.comments}
+        Published: ${new Date(video.publishedAt).toDateString()}`
+      );
 
-VIDEO: 
-Title: "${selectedVideo.title}" 
-Views: ${Number(selectedVideo.views)} 
-Published: ${selectedVideo.publishedAt} 
-Channel avg views: ${avgViews} 
-Performance: ${Number(selectedVideo.views) < avgViews 
-  ? Math.round(((avgViews - Number(selectedVideo.views)) / avgViews) * 100) + "% BELOW channel average" 
-  : Math.round(((Number(selectedVideo.views) - avgViews) / avgViews) * 100) + "% ABOVE channel average"} 
-Channel name: ${channel?.name || "this channel"} 
-Channel subscribers: ${channel?.subscribers || "unknown"} 
-
-Return this exact JSON structure: 
-{ 
-  "primaryKiller": "one specific reason using the actual title words and view numbers", 
-  "diagnoses": [ 
-    { 
-      "reason": "specific issue referencing this exact video title", 
-      "evidence": "use the real number ${Number(selectedVideo.views)} views vs ${avgViews} average", 
-      "fix": "one action verb sentence specific to this video" 
-    }, 
-    { 
-      "reason": "second distinct issue", 
-      "evidence": "evidence using real data", 
-      "fix": "one action verb sentence" 
-    }, 
-    { 
-      "reason": "third distinct issue", 
-      "evidence": "evidence using real data", 
-      "fix": "one action verb sentence" 
-    } 
-  ], 
-  "resurrectSteps": [ 
-    "specific step 1 mentioning this video title", 
-    "specific step 2", 
-    "specific step 3" 
-  ] 
-}`;
-
-      const aiResponse = await callAI(systemPrompt, userPrompt, { maxTokens: 800, temperature: 0.7 });
-      const parsed = parseJsonSafely(aiResponse);
-      
-      // Map JSON keys to existing state structure if needed
-      const resultData = parsed ? {
-        killer: parsed.primaryKiller,
-        diagnosis: parsed.diagnoses.map((d: any) => ({
-          reason: d.reason,
-          evidence: d.evidence,
-          fix: d.fix
-        })),
-        resurrection: parsed.resurrectSteps
-      } : null;
-
-      setResult(resultData);
+      const parsed = safeJsonParse(aiResponse);
+      setResult(parsed);
       
       // Smooth scroll to diagnosis
       setTimeout(() => {
