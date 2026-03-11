@@ -28,30 +28,40 @@ export default function FeaturePage({ emoji, title, description, children, accen
   const color = accentColor || sectionColors[pathParts[0]] || "hsl(var(--primary))";
 
   return (
-    <div className="p-4 md:p-6 max-w-[1000px] mx-auto">
+    <div className="p-6 md:p-8 max-w-[920px] mx-auto">
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-5 transition-colors group"
+      >
+        <ArrowLeft className="h-3 w-3 group-hover:-translate-x-0.5 transition-transform" />
+        {section}
+        <span className="opacity-40">/</span>
+        {title}
+      </button>
+
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        className="flex items-center gap-3 mb-6 h-14"
+        className="flex items-start gap-4 mb-8"
       >
         <div
-          className="h-10 w-10 rounded-lg flex items-center justify-center text-xl shrink-0"
+          className="h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0"
           style={{ background: `${color}15` }}
         >
           {emoji}
         </div>
 
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold font-display leading-none">{title}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="t-page mb-0">{title}</h1>
             {badge && (
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${color}20`, color }}>
                 {badge}
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-1 truncate">{description}</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-[500px]">{description}</p>
         </div>
       </motion.div>
 

@@ -5,7 +5,7 @@ import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import { useChannelData } from "@/hooks/useChannelData";
 import { callAI, parseJsonFromAI } from "@/lib/ai-service";
-import { formatCount } from "@/lib/utils";
+import { formatCount } from "@/lib/youtube-api";
 import ShareInsight from "@/components/ShareInsight";
 import CopyButton from "@/components/CopyButton";
 

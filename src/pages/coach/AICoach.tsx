@@ -1,241 +1,210 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Send, Trash2, Loader2, Zap, Target, Flame, BarChart3 } from "lucide-react";
+import { motion } from "framer-motion";
+import { Bot, Send, Zap, MessageSquare, Heart, Swords, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useChannelData } from "@/hooks/useChannelData";
+import { useNavigate } from "react-router-dom";
+import { isChannelConnected } from "@/lib/youtube-api";
+import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
 import { callAI } from "@/lib/ai-service";
-import { formatCount } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
+const quickActions = [
+  { label: "What should I post?", icon: Zap },
+  { label: "Review my channel", icon: MessageSquare },
+  { label: "I'm feeling burnt out", icon: Heart },
+  { label: "Help me beat my competitor", icon: Swords },
+];
+
 export default function AICoach() {
-  const { channel, videos, avgViews, bestDay, subscribers, channelContext, isConnected } = useChannelData();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [channelContext, setChannelContext] = useState("");
   const [initializing, setInitializing] = useState(true);
-  const [followUpChips, setFollowUpChips] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isConnected) return;
-    loadHistory();
-  }, [isConnected]);
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
+    initCoach();
+  }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, loading]);
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  async function loadHistory() {
+  async function initCoach() {
+    // Check for persisted chat history
     const saved = localStorage.getItem("cb_coach_history");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (parsed.length > 0) {
           setMessages(parsed);
+          // Still load channel context for future messages
+          try {
+            const ch = await getMyChannel();
+            const vids = await getRecentVideos(ch.id, 10);
+            setChannelContext(getChannelContext(ch, vids));
+          } catch {}
           setInitializing(false);
           return;
         }
-      } catch (e) {}
+      } catch {}
     }
-    
-    // First time load - generate greeting
+
     try {
-      const latestVideo = videos[0];
-      const performance = latestVideo ? (latestVideo.views > avgViews ? "overperformed" : "underperformed") : "published";
-      
+      const ch = await getMyChannel();
+      const vids = await getRecentVideos(ch.id, 10);
+      const ctx = getChannelContext(ch, vids);
+      setChannelContext(ctx);
+
       const greeting = await callAI(
-        `You are Max, an elite YouTube strategist. System Rules:
-        - Reference the channel name: ${channel?.name}
-        - Reference the latest video: "${latestVideo?.title}" which ${performance}
-        - End with the single most important insight about their channel.
-        - Sound like a brilliant friend, not a corporate assistant.
-        - Max 4 sentences.`,
-        `Generate a personalized greeting for ${channel?.name}. Data: ${subscribers} subs, ${formatCount(avgViews)} avg views, best day is ${bestDay}.`
+        `You are Max, an elite YouTube growth coach. You have access to this creator's full channel data:\n${ctx}\n\nYou speak like a brilliant friend — direct, specific, encouraging but brutally honest. Never give generic advice. Every answer must reference their specific channel data.`,
+        "Generate a short, personalized opening message for this creator. Reference their latest video performance. Be warm but insightful. 2-3 sentences max."
       );
-      
-      const initialMsgs: Message[] = [{ role: "assistant", content: greeting }];
-      setMessages(initialMsgs);
-      localStorage.setItem("cb_coach_history", JSON.stringify(initialMsgs));
-    } catch (e) {
-      const fallback = `Hey! I'm Max. I've been looking at ${channel?.name} and noticed your best day is ${bestDay}. Let's get to work on your next viral hit. What's on your mind?`;
-      setMessages([{ role: "assistant", content: fallback }]);
+      const msgs: Message[] = [{ role: "assistant", content: greeting }];
+      setMessages(msgs);
+      localStorage.setItem("cb_coach_history", JSON.stringify(msgs));
+    } catch (err) {
+      const msgs: Message[] = [{ role: "assistant", content: "Hey! I'm Max, your AI growth coach. Connect your YouTube channel and I'll give you personalized advice based on your real data. What's on your mind?" }];
+      setMessages(msgs);
+      localStorage.setItem("cb_coach_history", JSON.stringify(msgs));
     } finally {
       setInitializing(false);
     }
   }
 
-  async function handleSend(text?: string) {
-    const content = text || input.trim();
-    if (!content || loading) return;
+  function clearChat() {
+    localStorage.removeItem("cb_coach_history");
+    setMessages([]);
+    setInitializing(true);
+    initCoach();
+  }
 
-    const userMsg: Message = { role: "user", content };
-    const updatedMsgs = [...messages, userMsg];
-    setMessages(updatedMsgs);
+  async function sendMessage(text?: string) {
+    const msg = text || input.trim();
+    if (!msg || loading) return;
+
+    const userMsg: Message = { role: "user", content: msg };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput("");
     setLoading(true);
-    setFollowUpChips([]);
 
     try {
-      const systemPrompt = `You are Max, an elite YouTube strategist. 
-      Rules:
-      - Every response must reference the creator's actual channel: ${channel?.name}
-      - Reference real video titles or specific numbers from their data: ${channelContext}
-      - Use their bestDay (${bestDay}) and avgViews (${formatCount(avgViews)}) in recommendations.
-      - Never give generic advice.
-      - Always end with one specific action the creator can take TODAY.
-      - Max 4 sentences unless detail is requested.
-      - If they seem burnt out, acknowledge it warmly before advising.
-      - Sound like a brilliant friend.`;
+      const history = newMessages.map(m => `${m.role === "user" ? "Creator" : "Max"}: ${m.content}`).join("\n\n");
 
-      const response = await callAI(systemPrompt, content);
-      const assistantMsg: Message = { role: "assistant", content: response };
-      const finalMsgs = [...updatedMsgs, assistantMsg];
-      setMessages(finalMsgs);
-      localStorage.setItem("cb_coach_history", JSON.stringify(finalMsgs));
-      setFollowUpChips(["Tell me more", "Give me the action steps"]);
-    } catch (e) {
-      setMessages([...updatedMsgs, { role: "assistant", content: "Sorry, I hit a snag. Can you try asking that again?" }]);
+      const response = await callAI(
+        `You are Max, an elite YouTube growth coach with deep knowledge of the algorithm, content strategy, and creator psychology. You have access to this creator's full channel data:\n${channelContext}\n\nYou know their wins and their struggles. You speak like a brilliant friend who genuinely cares — direct, specific, encouraging but brutally honest. Never give generic advice. Every answer must reference their specific channel data. Keep responses concise (3-5 sentences unless they ask for detail).`,
+        `Conversation so far:\n${history}\n\nRespond to the creator's latest message.`
+      );
+
+      const updatedMessages = [...newMessages, { role: "assistant" as const, content: response }];
+      setMessages(updatedMessages);
+      localStorage.setItem("cb_coach_history", JSON.stringify(updatedMessages));
+    } catch (err) {
+      const updatedMessages = [...newMessages, { role: "assistant" as const, content: "Sorry, I had a moment there. Could you try again?" }];
+      setMessages(updatedMessages);
+      localStorage.setItem("cb_coach_history", JSON.stringify(updatedMessages));
     } finally {
       setLoading(false);
     }
   }
 
-  const quickActionChips = [
-    { label: `Why is my channel ${subscribers < 1000 ? 'slow' : 'plateauing'}?`, icon: BarChart3 },
-    { label: `What should I post on ${bestDay}?`, icon: Target },
-    { label: "Roast my last video", icon: Flame },
-    { label: "Give me my 30-day plan", icon: Zap },
-  ];
-
-  if (!isConnected) return null;
-
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] max-w-4xl mx-auto px-4 py-6">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-yellow-500 flex items-center justify-center text-black font-black text-xl">M</div>
-          <div>
-            <h1 className="font-bold font-display text-lg">AI Coach Max</h1>
-            <p className="text-xs text-zinc-500">Your Personal Strategist</p>
+      <div className="px-6 py-4 border-b border-border bg-card/50 backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Bot className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold font-display">Max</p>
+              <p className="text-xs text-muted-foreground">Your AI Growth Coach</p>
+            </div>
+            {loading && <div className="h-2 w-2 rounded-full bg-primary animate-pulse ml-2" />}
           </div>
+          <button onClick={clearChat} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Clear chat">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => { localStorage.removeItem("cb_coach_history"); setMessages([]); loadHistory(); }}
-          className="text-zinc-500 hover:text-red-500 transition-colors"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Clear Chat
-        </Button>
       </div>
 
-      {/* Chat Area */}
-      <ScrollArea className="flex-1 pr-4 mb-24">
-        <div className="space-y-6 pb-4">
-          {initializing ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 text-yellow-500 animate-spin mb-4" />
-              <p className="text-zinc-500 text-sm">Max is studying your channel...</p>
+      {/* Messages */}
+      <ScrollArea className="flex-1 p-6">
+        <div className="max-w-2xl mx-auto space-y-4">
+          {initializing && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-sm">Max is reviewing your channel...</span>
             </div>
-          ) : (
-            <>
-              {messages.map((m, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div 
-                    className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
-                      m.role === "user" 
-                        ? "bg-zinc-800 text-white" 
-                        : "bg-zinc-900 border-l-4 border-yellow-500 text-zinc-200"
-                    }`}
-                  >
-                    {m.content}
-                  </div>
-                </motion.div>
-              ))}
-              
-              {loading && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                  <div className="bg-zinc-900 border-l-4 border-yellow-500 p-4 rounded-2xl flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                    <span className="text-xs text-zinc-500 font-medium">Max is thinking...</span>
-                  </div>
-                </motion.div>
-              )}
+          )}
 
-              {/* Follow-up Chips */}
-              {!loading && followUpChips.length > 0 && (
-                <div className="flex flex-wrap gap-2 justify-start mt-4">
-                  {followUpChips.map(chip => (
-                    <button
-                      key={chip}
-                      onClick={() => handleSend(chip)}
-                      className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 transition-all"
-                    >
-                      {chip}
-                    </button>
+          {messages.map((m, i) => (
+            <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border"}`}>
+                <p className="text-sm whitespace-pre-wrap">{m.content}</p>
+              </div>
+            </motion.div>
+          ))}
+
+          {loading && (
+            <div className="flex justify-start gap-2">
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-sm">🤖</span>
+              </div>
+              <div className="bg-card border border-border rounded-2xl px-4 py-3">
+                <div className="flex gap-1.5">
+                  {[0,1,2].map(i => (
+                    <div key={i} className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
                   ))}
                 </div>
-              )}
-            </>
+              </div>
+            </div>
           )}
+
           <div ref={scrollRef} />
         </div>
       </ScrollArea>
 
-      {/* Bottom Sticky Input Bar */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[280px] p-4 bg-background/80 backdrop-blur-xl border-t border-zinc-800/50 z-20">
-        <div className="max-w-4xl mx-auto space-y-4">
-          {messages.length < 3 && !loading && (
-            <div className="flex flex-wrap gap-2 justify-center">
-              {quickActionChips.map(chip => (
-                <button
-                  key={chip.label}
-                  onClick={() => handleSend(chip.label)}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900/50 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 transition-all"
-                >
-                  <chip.icon className="h-3.5 w-3.5" />
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-          )}
-          
-          <div className="relative flex items-center gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Ask Max anything about your channel..."
-              className="h-14 bg-zinc-900 border-zinc-800 text-white rounded-2xl px-6 focus-visible:ring-yellow-500/50 pr-16"
-            />
-            <Button
-              size="icon"
-              disabled={loading || !input.trim()}
-              onClick={() => handleSend()}
-              className="absolute right-2 h-10 w-10 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl shrink-0"
-            >
-              <Send className="h-5 w-5" />
-            </Button>
+      {/* Quick actions */}
+      {messages.length <= 1 && (
+        <div className="px-6 pb-2">
+          <div className="max-w-2xl mx-auto flex flex-wrap gap-2">
+            {quickActions.map((a) => (
+              <Button key={a.label} variant="outline" size="sm" className="rounded-full" onClick={() => sendMessage(a.label)}>
+                <a.icon className="mr-1.5 h-3.5 w-3.5" /> {a.label}
+              </Button>
+            ))}
           </div>
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="px-6 py-4 border-t border-border bg-card/50 backdrop-blur-sm">
+        <div className="max-w-2xl mx-auto flex gap-3">
+          <Input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Ask Max anything about your channel..."
+            className="h-12 rounded-xl"
+            inputMode="text"
+            autoComplete="off"
+            onKeyDown={e => e.key === "Enter" && sendMessage()}
+            disabled={loading}
+          />
+          <Button size="lg" className="h-12 px-6 rounded-xl" onClick={() => sendMessage()} disabled={loading || !input.trim()} style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}>
+            <Send className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

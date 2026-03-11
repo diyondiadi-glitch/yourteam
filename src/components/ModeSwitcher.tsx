@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Zap, Sun, Moon, LogOut } from "lucide-react";
-import { isChannelConnected, clearChannelData, type ChannelData } from "@/lib/youtube-api";
-import { formatCount } from "@/lib/utils";
+import { isChannelConnected, clearChannelData, formatCount, type ChannelData } from "@/lib/youtube-api";
 import AIStatusDot from "@/components/AIStatusDot";
 
 const modes = [

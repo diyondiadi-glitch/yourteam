@@ -1,12 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, Eye, Clock, Flame, Zap, ArrowRight, AlertTriangle, BarChart2, Loader2, Play } from "lucide-react";
+import { TrendingUp, Eye, Clock, Flame, Zap, ArrowRight, AlertTriangle, BarChart2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { useChannelData } from "@/hooks/useChannelData";
-import { calcChannelScore, timeAgo, type VideoData } from "@/lib/youtube-api";
-import { formatCount } from "@/lib/utils";
+import { formatCount, calcChannelScore, timeAgo, clearChannelData, type VideoData } from "@/lib/youtube-api";
 import { callAI } from "@/lib/ai-service";
 import VideoModal from "@/components/VideoModal";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -17,10 +16,9 @@ type SortMode = "recent" | "views" | "worst";
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg px-3 py-2 bg-zinc-900 border border-zinc-800 shadow-xl">
-      <p className="text-xs text-zinc-400 mb-1">{payload[0]?.payload?.fullTitle}</p>
-      <p className="text-sm font-bold text-white">{formatCount(payload[0]?.value)} views</p>
-      <p className="text-[10px] text-zinc-500 mt-1">{payload[0]?.payload?.date}</p>
+    <div className="rounded-lg px-3 py-2" style={{ background: "hsl(var(--background-card))", border: "1px solid hsl(var(--border))" }}>
+      <p className="text-sm font-semibold">{formatCount(payload[0]?.value)} views</p>
+      <p className="text-xs text-muted-foreground">{payload[0]?.payload?.label}</p>
     </div>
   );
 }
@@ -30,281 +28,229 @@ export default function Dashboard() {
   const { channel, videos, avgViews, subscribers, isConnected } = useChannelData();
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const [sortMode, setSortMode] = useState<SortMode>("recent");
-  const [actionPlan, setActionPlan] = useState<string[]>([]);
-  const [loadingPlan, setLoadingPlan] = useState(true);
+  const [brief, setBrief] = useState("");
+  const [briefLoading, setBriefLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
 
   useEffect(() => {
-    if (!isConnected || !channel || !videos.length) return;
-    
-    setLoadingPlan(true);
+    if (!isConnected) return;
+    if (!channel || videos.length === 0) return;
+    setBriefLoading(true);
     callAI(
-      "You are a YouTube growth strategist. Generate 3 specific numbered action items. Each item MUST contain a specific number or day from the channel's real data. Start with a verb. Be direct. Format: 1. Action\n2. Action\n3. Action",
-      `Channel: ${channel.name}. Avg Views: ${avgViews}. Best Day: ${channel.bestDay}. Recent performance: ${videos.slice(0, 5).map(v => v.views).join(", ")}. Last 30 uploads best day: ${channel.bestDay}.`
-    ).then(r => {
-      const items = r.split("\n").filter(l => /^\d\./.test(l.trim())).map(l => l.replace(/^\d\.\s*/, "").trim());
-      setActionPlan(items.slice(0, 3));
-    }).catch(() => {
-      setActionPlan([
-        `Post on ${channel.bestDay} at 3pm — it gets 2x your average based on recent data.`,
-        `Analyze why your top video got ${formatCount(videos[0]?.views || 0)} views and replicate the hook.`,
-        `Fix engagement on your latest upload which is currently performing below average.`
-      ]);
-    }).finally(() => setLoadingPlan(false));
-  }, [channel?.id]);
+      "You are a YouTube growth coach. Respond with EXACTLY 3 bullet points. Each bullet must contain a specific number or day. Start each with •. No preamble. No intro sentence. Just the 3 bullets. Never be vague.",
+      `Channel: ${channel.name}. ${subscribers} subs. Avg views: ${avgViews}. Best day: ${channel.bestDay}. Upload frequency: ${channel.uploadFrequency}. Last 5 videos: ${videos.slice(0,5).map(v=>`"${v.title}" got ${v.views} views`).join(", ")}.`
+    ).then(r => setBrief(r)).catch(() => setBrief("")).finally(() => setBriefLoading(false));
+  }, [channel?.name]);
 
   const graphData = useMemo(() => {
     if (!videos.length) return [];
     const now = Date.now();
-    const daysLimit = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 3650;
-    
+    const cutoff = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 3650;
     return videos
-      .filter(v => (now - new Date(v.publishedAt).getTime()) / 86400000 <= daysLimit)
-      .slice(0, 50)
+      .filter(v => (now - new Date(v.publishedAt).getTime()) / 86400000 <= cutoff)
+      .slice(0, timeRange === "all" ? 200 : 50)
       .reverse()
       .map(v => ({
-        views: Number(v.views), // Critical: Cast to Number
-        fullTitle: v.title,
-        label: v.title.slice(0, 20) + "...",
+        views: v.views,
+        label: v.title.slice(0, 40) + (v.title.length > 40 ? "…" : ""),
         date: new Date(v.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       }));
   }, [videos, timeRange]);
 
   const sortedVideos = useMemo(() => {
-    let v = [...videos];
-    if (sortMode === "views") v.sort((a, b) => b.views - a.views);
-    else if (sortMode === "worst") v.sort((a, b) => a.views - b.views);
-    return v.slice(0, 12);
-  }, [videos, sortMode]);
+    const v = [...videos.slice(0, 20)];
+    if (sortMode === "views") return v.sort((a, b) => b.views - a.views).slice(0, 8);
+    if (sortMode === "worst") return v.sort((a, b) => (a.views / (avgViews || 1)) - (b.views / (avgViews || 1))).slice(0, 8);
+    return v.slice(0, 8);
+  }, [videos, sortMode, avgViews]);
 
   if (!isConnected) return null;
 
   const channelScore = channel ? calcChannelScore(videos, channel.subscribers) : 0;
   const latestVideo = videos[0];
-  const isUnderperforming = latestVideo && avgViews > 0 && latestVideo.views < avgViews * 0.7;
-  const underperformPercent = latestVideo ? Math.round((1 - (latestVideo.views / avgViews)) * 100) : 0;
+  const isUnderperforming = latestVideo && avgViews > 0 && latestVideo.views < avgViews * 0.6;
+  const briefLines = brief.split("\n").filter(l => l.trim().startsWith("•") || l.trim().startsWith("-")).slice(0, 3);
 
   const metrics = [
-    { label: "Avg Views", value: formatCount(avgViews), icon: Eye, color: "text-blue-400" },
-    { label: "Channel Score", value: `${channelScore}/100`, icon: TrendingUp, color: "text-yellow-400" },
-    { label: "Best Day", value: channel?.bestDay || "—", icon: Clock, color: "text-green-400" },
-    { label: "Frequency", value: channel?.uploadFrequency || "—", icon: Flame, color: "text-orange-400" },
+    { label: "Avg Views", value: formatCount(avgViews), icon: Eye, color: "hsl(var(--cat-analyze))" },
+    { label: "Channel Score", value: `${channelScore}/100`, icon: TrendingUp, color: "hsl(var(--primary))" },
+    { label: "Best Day", value: channel?.bestDay?.slice(0, 3) || "—", icon: Clock, color: "hsl(var(--cat-create))" },
+    { label: "Frequency", value: channel?.uploadFrequency || "—", icon: Flame, color: "hsl(var(--cat-grow))" },
   ];
 
-  const lastAnalysed = channel?.fetchedAt ? timeAgo(channel.fetchedAt) : "Just now";
-
   return (
-    <div className="p-6 md:p-8 max-w-[1200px] mx-auto space-y-8 pb-20">
-      
+    <div className="p-6 md:p-8 max-w-[920px] mx-auto space-y-6">
+
       {/* ── Header ─────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {!channel ? (
+        <div className="flex items-center gap-4"><Skeleton className="h-12 w-12 rounded-full" /><Skeleton className="h-6 w-48" /></div>
+      ) : (
         <div className="flex items-center gap-4">
-          <img src={channel?.avatar} alt="" className="h-14 w-14 rounded-full border-2 border-zinc-800 object-cover" />
+          <img src={channel.avatar} alt="" className="h-12 w-12 rounded-full ring-2 ring-primary/20 object-cover" />
           <div>
-            <h1 className="text-2xl font-bold font-display">{channel?.name}</h1>
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <span>{formatCount(subscribers)} subscribers</span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Last analysed: {lastAnalysed}
-              </span>
-            </div>
+            <h1 className="text-xl font-bold font-display">{channel.name}</h1>
+            <p className="text-sm text-muted-foreground">{formatCount(subscribers)} subscribers</p>
           </div>
         </div>
-      </div>
-
-      {/* ── Best Time Banner ───────────────── */}
-      <div className="bg-yellow-500 text-black px-6 py-4 rounded-2xl flex items-center justify-between shadow-lg shadow-yellow-500/10">
-        <div className="flex items-center gap-4">
-          <div className="bg-black/10 p-2 rounded-lg">
-            <Clock className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="font-bold text-lg">Post on {channel?.bestDay}s at 3pm — your highest performing upload day</p>
-            <p className="text-sm font-medium opacity-70">Based on your data</p>
-          </div>
-        </div>
-        <div className="hidden md:block bg-black text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
-          Recommended
-        </div>
-      </div>
-
-      {/* ── Underperforming alert ───────────── */}
-      {isUnderperforming && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }} 
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 flex items-center justify-between group cursor-pointer"
-          onClick={() => navigate("/diagnose/video-death")}
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-red-500/20 p-2 rounded-xl text-red-500">
-              <AlertTriangle className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="font-bold text-red-500">"{latestVideo.title}" is {underperformPercent}% below your average</p>
-              <p className="text-sm text-red-500/70">Click to run an autopsy and fix it now</p>
-            </div>
-          </div>
-          <ArrowRight className="h-5 w-5 text-red-500 group-hover:translate-x-1 transition-transform" />
-        </motion.div>
       )}
 
-      {/* ── Metrics Row ────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {metrics.map((m) => (
-          <div key={m.label} className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl">
-            <div className="flex items-center gap-2 mb-3">
-              <m.icon className={`h-4 w-4 ${m.color}`} />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{m.label}</span>
+      {/* ── Underperforming alert ───────────── */}
+      <AnimatePresence>
+        {isUnderperforming && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="rounded-xl p-4 flex items-start gap-3" style={{ background: "hsl(var(--destructive) / 0.08)", border: "1px solid hsl(var(--destructive) / 0.2)" }}>
+            <div className="flex-1">
+              <AlertTriangle className="h-4 w-4 text-destructive inline mr-2" />
+              <span className="text-sm font-semibold">Latest video is underperforming</span>
+              <p className="text-xs text-muted-foreground mt-1">
+                "{latestVideo.title.slice(0, 50)}…" got {formatCount(latestVideo.views)} views — {Math.round((1 - latestVideo.views / avgViews) * 100)}% below your average
+              </p>
             </div>
-            <p className="text-2xl font-bold font-display">{m.value}</p>
-          </div>
+            <Button size="sm" variant="outline" className="shrink-0 text-xs rounded-lg" onClick={() => navigate("/diagnose/video-death")}>
+              Run Autopsy <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Metrics row ─────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {metrics.map((m, i) => (
+          <motion.div key={m.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="cb-card text-center py-4">
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <m.icon className="h-3.5 w-3.5" style={{ color: m.color }} />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{m.label}</span>
+            </div>
+            <p className="text-xl font-bold font-display">{m.value}</p>
+          </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* ── Views Graph ──────────────────── */}
-        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-lg font-bold font-display">Views Per Upload</h2>
-            <div className="flex bg-black/40 p-1 rounded-xl">
-              {(["7d", "30d", "all"] as TimeRange[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setTimeRange(r)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${timeRange === r ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
+      {/* ── Views Graph ─────────────────────── */}
+      <div className="cb-card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart2 className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">Views Per Upload</span>
           </div>
-
-          <div className="h-[300px] w-full">
+          <div className="flex gap-1">
+            {(["7d", "30d", "all"] as TimeRange[]).map(r => (
+              <button key={r} onClick={() => setTimeRange(r)} className="px-2.5 py-1 text-xs font-medium rounded-md transition-colors" style={timeRange === r ? { background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" } : { color: "hsl(var(--muted-foreground))" }}>
+                {r === "all" ? "All" : r.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+        {graphData.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">No uploads in this period</p>
+        ) : (
+          <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={graphData}>
                 <defs>
-                  <linearGradient id="viewGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(48, 96%, 53%)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="hsl(48, 96%, 53%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="date" hide />
-                <YAxis hide domain={['auto', 'auto']} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "hsl(240, 5%, 65%)" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => formatCount(v)} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="views"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#viewGradient)"
-                />
+                <Area type="monotone" dataKey="views" stroke="hsl(48, 96%, 53%)" strokeWidth={2} fill="url(#viewsGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        {/* ── Action Plan ───────────────────── */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <Zap className="h-24 w-24 text-yellow-500" />
-          </div>
-          <h2 className="text-lg font-bold font-display mb-6 flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
-            This Week's Action Plan
-          </h2>
-
-          <div className="space-y-6">
-            {loadingPlan ? (
-              [1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-2xl bg-zinc-800" />)
-            ) : (
-              actionPlan.map((item, idx) => (
-                <div key={idx} className="flex gap-4 group">
-                  <div className="h-8 w-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-sm font-bold group-hover:bg-yellow-500 group-hover:text-black transition-colors">
-                    {idx + 1}
-                  </div>
-                  <p className="text-zinc-200 text-sm leading-relaxed pt-1">{item}</p>
-                </div>
-              ))
-            )}
-          </div>
-
-          <Button 
-            variant="outline" 
-            className="w-full mt-8 border-zinc-800 hover:bg-zinc-800 rounded-xl"
-            onClick={() => navigate("/coach")}
-          >
-            Discuss with Max
-          </Button>
-        </div>
+        )}
       </div>
 
-      {/* ── Video Grid ────────────────────── */}
+      {/* ── AI Weekly Brief ──────────────────── */}
+      <div className="cb-card" style={{ borderLeft: "3px solid hsl(var(--primary))" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">AI Weekly Brief</span>
+        </div>
+        {briefLoading ? (
+          <div className="space-y-2">
+            {[1,2,3].map(i => <Skeleton key={i} className="h-4 w-full" />)}
+          </div>
+        ) : briefLines.length > 0 ? (
+          <div className="space-y-2">
+            {briefLines.map((line, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <span className="text-primary mt-0.5 font-bold">•</span>
+                <span>{line.replace(/^[•\-]\s*/, "")}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Post consistently and engage with every comment this week.</p>
+        )}
+      </div>
+
+      {/* ── Video Grid ───────────────────────── */}
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold font-display">Recent Content</h2>
-          <div className="flex gap-2">
-            {(["recent", "views", "worst"] as SortMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setSortMode(m)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${sortMode === m ? "bg-white text-black border-white" : "bg-transparent text-zinc-500 border-zinc-800 hover:border-zinc-700"}`}
-              >
-                {m}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold font-display">Your Videos</h2>
+          <div className="flex gap-1">
+            {([["recent","Recent"],["views","Most Views"],["worst","Underperforming"]] as [SortMode, string][]).map(([mode, label]) => (
+              <button key={mode} onClick={() => setSortMode(mode)} className="px-2.5 py-1 text-xs font-medium rounded-md transition-colors" style={sortMode === mode ? { background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))" } : { color: "hsl(var(--muted-foreground))" }}>
+                {label}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {sortedVideos.map((v) => {
-            const performance = v.views / avgViews;
-            const isGood = performance > 1.3;
-            const isBad = performance < 0.7;
-            const badgeColor = isGood ? "bg-green-500" : isBad ? "bg-red-500" : "bg-yellow-500";
-            const percentLabel = isGood ? `+${Math.round((performance - 1) * 100)}%` : `${Math.round((performance - 1) * 100)}%`;
+        {!channel ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-40 rounded-xl" />)}</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {sortedVideos.map((v, i) => {
+              const perf = avgViews > 0 ? (v.views - avgViews) / avgViews : 0;
+              const maxV = Math.max(...sortedVideos.map(x => x.views), 1);
+              const isAbove = perf >= 0;
+              return (
+                <motion.div key={v.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} onClick={() => setSelectedVideo(v)} className="cursor-pointer rounded-xl overflow-hidden cb-card p-0 group">
+                  <div className="relative">
+                    <img src={v.thumbnail} alt={v.title} className="w-full h-24 object-cover" loading="lazy" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    {Math.abs(perf) > 0.5 && (
+                      <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: isAbove ? "hsl(var(--success) / 0.9)" : "hsl(var(--destructive) / 0.9)", color: "#fff" }}>
+                        {isAbove ? "+" : ""}{Math.round(perf * 100)}%
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2.5">
+                    <p className="text-xs font-medium truncate mb-1">{v.title}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatCount(v.views)} · {timeAgo(v.publishedAt)}</p>
+                    <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "hsl(var(--border))" }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((v.views / maxV) * 100, 100)}%`, background: isAbove ? "hsl(var(--success))" : "hsl(var(--destructive))" }} />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-            return (
-              <motion.div
-                key={v.id}
-                whileHover={{ y: -5 }}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer group"
-                onClick={() => setSelectedVideo(v)}
-              >
-                <div className="aspect-video relative overflow-hidden">
-                  <img src={v.thumbnail} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
-                  <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-[10px] font-bold">
-                    {v.duration.replace("PT", "").replace("M", ":").replace("S", "").padStart(4, "0")}
-                  </div>
-                  <div className={`absolute top-2 left-2 ${badgeColor} text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg`}>
-                    {percentLabel}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-sm line-clamp-2 mb-2 group-hover:text-yellow-500 transition-colors">{v.title}</h3>
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                    <span>{formatCount(v.views)} views</span>
-                    <span>{timeAgo(v.publishedAt)}</span>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
+      {/* ── Quick Actions ────────────────────── */}
+      <div>
+        <h2 className="text-base font-semibold font-display mb-3">Quick Actions</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Get Roasted 🔥", url: "/diagnose/roast", color: "hsl(var(--cat-diagnose))" },
+            { label: "Video Autopsy 💀", url: "/diagnose/video-death", color: "hsl(var(--destructive))" },
+            { label: "What To Make Next 💡", url: "/strategy/next-video", color: "hsl(var(--cat-strategy))" },
+            { label: "Talk to Max 🤖", url: "/coach", color: "hsl(var(--cat-coach))" },
+          ].map((a, i) => (
+            <button key={a.label} onClick={() => navigate(a.url)} className="cb-card p-4 text-left group hover:scale-[1.02] transition-transform">
+              <p className="text-sm font-semibold mb-1">{a.label}</p>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+            </button>
+          ))}
         </div>
       </div>
 
-      {selectedVideo && (
-        <VideoModal
-          video={selectedVideo}
-          isOpen={!!selectedVideo}
-          onClose={() => setSelectedVideo(null)}
-          avgViews={avgViews}
-        />
-      )}
+      <VideoModal video={selectedVideo} avgViews={avgViews} onClose={() => setSelectedVideo(null)} />
     </div>
   );
 }

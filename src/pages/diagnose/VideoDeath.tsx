@@ -1,221 +1,228 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Skull, Zap, AlertTriangle, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
+import { AlertTriangle, Wrench, ChevronDown, Skull, Zap, Flame } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import FeaturePage from "@/components/FeaturePage";
-import { useChannelData } from "@/hooks/useChannelData";
-import { type VideoData } from "@/lib/youtube-api";
-import { formatCount } from "@/lib/utils";
-import { callAI, safeJsonParse } from "@/lib/ai-service";
+import LoadingSteps from "@/components/LoadingSteps";
+import CopyButton from "@/components/CopyButton";
+import { useNavigate } from "react-router-dom";
+import { isChannelConnected, formatCount, type VideoData, type ChannelData } from "@/lib/youtube-api";
+import { callAI, parseJsonSafely } from "@/lib/ai-service";
+import { getSelectedVideo, clearSelectedVideo } from "@/lib/video-context";
 
-interface DiagnosisCard {
+interface Diagnosis {
   reason: string;
   evidence: string;
+  emotional_context: string;
   fix: string;
-}
-
-interface AutopsyResult {
-  killer: string;
-  diagnosis: DiagnosisCard[];
-  resurrection: string[];
+  priority: string;
 }
 
 export default function VideoDeath() {
-  const { channel, videos, avgViews, isConnected } = useChannelData();
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [result, setResult] = useState<AutopsyResult | null>(null);
+  const navigate = useNavigate();
+  const [channel, setChannel] = useState<ChannelData | null>(null);
+  const [videos, setVideos] = useState<VideoData[]>([]);
+  const [selectedVideoId, setSelectedVideoId] = useState<string>("");
+  const [diagnosis, setDiagnosis] = useState<Diagnosis[]>([]);
+  const [killer, setKiller] = useState("");
+  const [failureType, setFailureType] = useState("");
   const [loading, setLoading] = useState(false);
-  const diagnosisRef = useRef<HTMLDivElement>(null);
+  const [loadingVideos, setLoadingVideos] = useState(true);
+  const [loadStep, setLoadStep] = useState(0);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
-  // Auto-select the worst performing video from last 30 days
   useEffect(() => {
-    if (!isConnected || !videos.length || selectedId) return;
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
+    loadVideos();
+  }, [navigate]);
 
-    const now = Date.now();
-    const recentVideos = videos.filter(v => (now - new Date(v.publishedAt).getTime()) / 86400000 <= 30);
-    const pool = recentVideos.length > 0 ? recentVideos : videos.slice(0, 10);
-    
-    const worst = pool.reduce((prev, curr) => (curr.views < prev.views ? curr : prev), pool[0]);
-    if (worst) {
-      setSelectedId(worst.id);
-      runAutopsy(worst.id);
+  async function loadVideos() {
+    try {
+      const stored = localStorage.getItem('yt_channel_data');
+      if (!stored) { navigate('/'); return; }
+      const ch: ChannelData = JSON.parse(stored);
+      setChannel(ch);
+      const vids = ch.videos?.slice(0, 10) || [];
+      setVideos(vids);
+
+      // Check for pre-selected video from video context
+      const preSelected = getSelectedVideo();
+      if (preSelected) {
+        clearSelectedVideo();
+        const match = vids.find(v => v.id === preSelected.id);
+        if (match) {
+          setSelectedVideoId(match.id);
+        }
+      } else {
+        // Auto-select the most underperforming recent video
+        if (vids.length > 0) {
+          const avg = vids.reduce((s, v) => s + v.views, 0) / Math.max(vids.length, 1);
+          const worst = vids.reduce((prev, curr) =>
+            (curr.views / avg) < (prev.views / avg) ? curr : prev
+          );
+          if (worst) setSelectedVideoId(worst.id);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingVideos(false);
     }
-  }, [isConnected, videos.length]);
+  }
 
-  async function runAutopsy(videoId: string) {
-    const video = videos.find(v => v.id === videoId);
-    if (!video || !channel) return;
+  async function runDiagnosis() {
+    if (!selectedVideoId || !channel) return;
+    const video = videos.find(v => v.id === selectedVideoId);
+    if (!video) return;
 
-    setSelectedId(videoId);
     setLoading(true);
-    setResult(null);
+    setDiagnosis([]);
+    setKiller("");
+    setFailureType("");
+    setLoadStep(0);
+
+    const avgViews = Math.round(videos.reduce((s, v) => s + v.views, 0) / videos.length);
+    const avgLikes = Math.round(videos.reduce((s, v) => s + v.likes, 0) / videos.length);
+    const avgComments = Math.round(videos.reduce((s, v) => s + v.comments, 0) / videos.length);
+    const publishDay = new Date(video.publishedAt).toLocaleDateString("en-US", { weekday: "long" });
+
+    setTimeout(() => setLoadStep(1), 1500);
+    setTimeout(() => setLoadStep(2), 3000);
 
     try {
-      const prompt = `You are a YouTube growth expert performing a "Video Autopsy". Analyze why this video underperformed. 
-      Return JSON with this structure:
-      {
-        "killer": "One bold sentence explaining the primary reason for failure",
-        "diagnosis": [
-          {"reason": "Reason 1", "evidence": "Stats evidence", "fix": "Specific fix"},
-          {"reason": "Reason 2", "evidence": "Stats evidence", "fix": "Specific fix"},
-          {"reason": "Reason 3", "evidence": "Stats evidence", "fix": "Specific fix"}
-        ],
-        "resurrection": ["Step 1", "Step 2", "Step 3"]
-      }
-      Never claim to have retention data. Use title-to-views ratio and comment sentiment as evidence.`;
-
-      const aiResponse = await callAI(prompt, 
-        `Video: "${video.title}"
-        Views: ${video.views} (Channel Avg: ${Math.round(avgViews)})
-        Likes: ${video.likes}
-        Comments: ${video.comments}
-        Published: ${new Date(video.publishedAt).toDateString()}`
+      const result = await callAI(
+        `You are a brutal YouTube algorithm expert. Given this video's performance data compared to channel averages, identify exactly 3 reasons it underperformed. 
+Return JSON with this exact structure:
+{"failure_type":"PACKAGING|CONTENT|TIMING|ALGORITHM","killer_reason":"Single most important reason this video failed","bottom_line":"One sentence summary","diagnosis":[{"reason":"specific reason","evidence":"data evidence","emotional_context":"impact on creator","fix":"actionable fix","priority":"high|medium|low"},{"reason":"...","evidence":"...","emotional_context":"...","fix":"...","priority":"..."},{"reason":"...","evidence":"...","emotional_context":"...","fix":"...","priority":"..."}]}
+Be specific, be brutal, be helpful.`,
+        `Channel: ${channel.name} (${formatCount(channel.subscribers)} subs)
+Channel averages: ${formatCount(avgViews)} views, ${avgLikes} likes, ${avgComments} comments per video
+THIS VIDEO:
+Title: "${video.title}"
+Views: ${formatCount(video.views)} (${video.views < avgViews ? "BELOW" : "ABOVE"} average by ${Math.abs(Math.round((video.views / avgViews - 1) * 100))}%)
+Likes: ${video.likes}
+Comments: ${video.comments}
+Published: ${video.publishedAt} (${publishDay})
+Why did this video underperform?`
       );
 
-      const parsed = safeJsonParse(aiResponse);
-      setResult(parsed);
-      
-      // Smooth scroll to diagnosis
-      setTimeout(() => {
-        diagnosisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-    } catch (e) {
-      setResult({
-        killer: "Packaging & Hook Disconnect",
-        diagnosis: [
-          { reason: "Low Title-to-View Ratio", evidence: `Only ${video.views} views despite ${formatCount(channel.subscribers)} subscribers.`, fix: "Use more curiosity-gap titles." },
-          { reason: "Static Intro", evidence: "Comment sentiment suggests a slow start.", fix: "Cut the first 10 seconds of fluff." },
-          { reason: "Timing", evidence: `Published on ${new Date(video.publishedAt).toLocaleDateString('en-US', {weekday: 'long'})} which is not your best day.`, fix: `Shift uploads to ${channel.bestDay}.` }
-        ],
-        resurrection: [
-          "Change the thumbnail to a high-contrast version.",
-          "Reply to the top 3 comments to boost engagement signals.",
-          "Post a community tab poll related to this video's topic."
-        ]
-      });
+      const parsed = parseJsonSafely(result);
+      if (parsed) {
+        setFailureType(parsed.failure_type || "PACKAGING");
+        setKiller(parsed.killer_reason || parsed.bottom_line || "Check the diagnosis above");
+        if (Array.isArray(parsed.diagnosis)) {
+          setDiagnosis(parsed.diagnosis);
+        }
+      }
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   }
 
-  if (!isConnected) return null;
+  const priorityColor = (p: string) => {
+    if (p === "high") return "hsl(var(--destructive))";
+    if (p === "medium") return "hsl(var(--warning))";
+    return "hsl(var(--muted-foreground))";
+  };
 
-  const displayVideos = videos.slice(0, 20);
+  const avgViews = videos.length > 0 ? Math.round(videos.reduce((s, v) => s + v.views, 0) / videos.length) : 0;
 
   return (
-    <FeaturePage 
-      emoji="💀" 
-      title="Autopsy Room" 
-      description="Identify why your videos underperformed and how to resurrect them."
-    >
-      <div className="space-y-12">
-        {/* Horizontal Scrollable Row */}
-        <div className="relative group">
-          <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide snap-x">
-            {displayVideos.map((v) => {
-              const performance = v.views / avgViews;
-              const isSelected = selectedId === v.id;
-              
+    <FeaturePage emoji="💀" title="Autopsy Room" description="Select any video and get a brutally honest diagnosis with actionable fixes">
+      <div className="mb-6">
+        {loadingVideos ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className="aspect-video rounded-xl bg-secondary animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {videos.map(v => {
+              const isBelow = v.views < avgViews * 0.6;
+              const isAbove = v.views > avgViews * 1.2;
+              const isSelected = selectedVideoId === v.id;
               return (
-                <motion.div
-                  key={v.id}
-                  whileHover={{ y: -4 }}
-                  onClick={() => runAutopsy(v.id)}
-                  className={`flex-shrink-0 w-[140px] snap-start cursor-pointer transition-all duration-300 rounded-xl overflow-hidden border-2 ${isSelected ? "border-yellow-500 ring-4 ring-yellow-500/20" : "border-zinc-800 hover:border-zinc-700"}`}
-                >
-                  <div className="aspect-video relative">
-                    <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.5 rounded text-[8px] font-bold">
-                      {formatCount(v.views)}
+                <motion.div key={v.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setSelectedVideoId(v.id)} className={`cursor-pointer rounded-xl overflow-hidden transition-all ${isSelected ? 'ring-2 ring-destructive shadow-[0_0_20px_rgba(248,113,113,0.3)]' : 'hover:ring-1 hover:ring-border'}`} style={{ background: "hsl(var(--background-card))", border: "1px solid hsl(var(--border))" }}>
+                  <div className="relative">
+                    <img src={v.thumbnail} alt={v.title} className="w-full aspect-video object-cover" loading="lazy" />
+                    <div className="absolute top-2 right-2">
+                      {isBelow ? <Skull className="h-5 w-5 text-destructive drop-shadow-lg" /> : isAbove ? <Flame className="h-5 w-5 text-success drop-shadow-lg" /> : null}
                     </div>
                   </div>
-                  <div className="p-2 bg-zinc-900/50">
-                    <h3 className="text-[10px] font-bold line-clamp-1 mb-1">{v.title}</h3>
-                    <div className={`text-[9px] font-black uppercase ${performance < 0.7 ? "text-red-500" : performance > 1.3 ? "text-green-500" : "text-yellow-500"}`}>
-                      {performance < 1 ? `-${Math.round((1-performance)*100)}%` : `+${Math.round((performance-1)*100)}%`}
-                    </div>
+                  <div className="p-3">
+                    <p className="text-sm font-medium line-clamp-2 mb-1">{v.title}</p>
+                    <p className="text-xs text-muted-foreground">{formatCount(v.views)} views</p>
                   </div>
                 </motion.div>
               );
             })}
           </div>
-          {/* Fades for scroll indicators */}
-          <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#09090b] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#09090b] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-
-        {/* Diagnosis Section */}
-        <div ref={diagnosisRef} className="min-h-[400px]">
-          <AnimatePresence mode="wait">
-            {loading ? (
-              <motion.div 
-                key="loading"
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center py-20"
-              >
-                <Loader2 className="h-12 w-12 text-yellow-500 animate-spin mb-4" />
-                <p className="text-zinc-400 font-medium">Running deep autopsy...</p>
-              </motion.div>
-            ) : result ? (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-10"
-              >
-                {/* Primary Killer */}
-                <div className="text-center space-y-2">
-                  <p className="text-xs text-red-500 font-black uppercase tracking-widest">Primary Killer</p>
-                  <h2 className="text-3xl font-bold font-display max-w-2xl mx-auto">{result.killer}</h2>
-                </div>
-
-                {/* 3 Diagnosis Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {result.diagnosis.map((d, i) => (
-                    <div key={i} className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-4">
-                      <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
-                        <AlertTriangle className="h-5 w-5" />
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="font-bold text-lg">{d.reason}</h3>
-                        <p className="text-xs text-zinc-500 leading-relaxed italic">Evidence: {d.evidence}</p>
-                        <p className="text-sm text-zinc-300 leading-relaxed pt-2 border-t border-zinc-800">{d.fix}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Resurrection Section */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-6 opacity-5">
-                    <Zap className="h-32 w-32 text-yellow-500" />
-                  </div>
-                  <h3 className="text-xl font-bold font-display mb-8 flex items-center gap-2">
-                    <CheckCircle2 className="h-6 w-6 text-yellow-500" />
-                    Resurrect This Video
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {result.resurrection.map((step, i) => (
-                      <div key={i} className="flex gap-4 group">
-                        <div className="h-8 w-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-xs font-bold group-hover:bg-yellow-500 group-hover:text-black transition-colors">
-                          {i + 1}
-                        </div>
-                        <p className="text-zinc-300 text-sm leading-relaxed pt-1">{step}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-                <Skull className="h-12 w-12 mb-4 opacity-20" />
-                <p>Select a video to run an autopsy</p>
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
+        )}
       </div>
+
+      <AnimatePresence>
+        {selectedVideoId && !loading && diagnosis.length === 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <Button variant="destructive" size="lg" className="w-full h-14 rounded-xl text-lg font-bold mb-8 animate-pulse" onClick={runDiagnosis}>
+              <Skull className="mr-2 h-5 w-5" /> Run Autopsy
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {loading && (
+        <LoadingSteps steps={["Fetching video data...", "Analysing performance patterns...", "Generating brutal diagnosis..."]} currentStep={loadStep} />
+      )}
+
+      <AnimatePresence>
+        {killer && failureType && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="cb-card mb-6" style={{ boxShadow: "0 0 20px rgba(248,113,113,0.08)", borderColor: "rgba(248,113,113,0.15)" }}>
+            <div className="text-center">
+              <span className="inline-block px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider mb-4" style={{ background: "hsl(var(--destructive) / 0.12)", color: "hsl(var(--destructive))" }}>
+                {failureType}
+              </span>
+              <p className="text-2xl font-bold font-display mb-2">{killer}</p>
+              <p className="text-sm text-primary">Fix this first.</p>
+            </div>
+          </motion.div>
+        )}
+
+        {diagnosis.length > 0 && (
+          <div className="space-y-4 mb-8">
+            {diagnosis.slice(0, showFullAnalysis ? diagnosis.length : 3).map((d, i) => (
+              <motion.div key={i} initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.15 }} className="cb-card relative">
+                <div className="absolute top-4 right-4 h-3 w-3 rounded-full" style={{ background: priorityColor(d.priority) }} />
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-lg font-semibold mb-1">{d.reason}</p>
+                    <p className="text-sm" style={{ color: "hsl(var(--primary))" }}>{d.evidence}</p>
+                    {d.emotional_context && <p className="text-xs text-muted-foreground mt-1 italic">{d.emotional_context}</p>}
+                  </div>
+                  <CopyButton text={`${d.reason}\n${d.evidence}\n${d.fix}`} />
+                </div>
+                <div className="ml-11 mt-3 p-3 rounded-lg" style={{ background: "hsl(var(--success) / 0.06)", border: "1px solid hsl(var(--success) / 0.15)" }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Wrench className="h-3.5 w-3.5 text-success" />
+                    <span className="text-xs font-semibold uppercase text-success">Fix</span>
+                  </div>
+                  <p className="text-sm">{d.fix}</p>
+                </div>
+              </motion.div>
+            ))}
+            {diagnosis.length > 3 && !showFullAnalysis && (
+              <Button variant="ghost" className="w-full" onClick={() => setShowFullAnalysis(true)}>
+                See Complete Breakdown <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
+      </AnimatePresence>
     </FeaturePage>
   );
 }
