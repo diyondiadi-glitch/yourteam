@@ -1,5 +1,5 @@
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_KEY = "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";
+const GROQ_KEY = import.meta.env.VITE_GROQ_KEY ?? "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";
 
 const GROQ_MODELS = [
   "llama-3.1-8b-instant",
