@@ -32,10 +32,7 @@ export default function VideoDeath() {
   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
   useEffect(() => {
-    if (!isChannelConnected()) { 
-      navigate("/", { replace: true }); 
-      return; 
-    }
+    if (!isChannelConnected()) { navigate("/", { replace: true }); return; }
     loadVideos();
   }, [navigate]);
 
@@ -45,15 +42,25 @@ export default function VideoDeath() {
       if (!stored) { navigate('/'); return; }
       const ch: ChannelData = JSON.parse(stored);
       setChannel(ch);
-      setVideos(ch.videos?.slice(0, 10) || []);
+      const vids = ch.videos?.slice(0, 10) || [];
+      setVideos(vids);
 
       // Check for pre-selected video from video context
       const preSelected = getSelectedVideo();
       if (preSelected) {
         clearSelectedVideo();
-        const match = ch.videos?.find(v => v.id === preSelected.id);
+        const match = vids.find(v => v.id === preSelected.id);
         if (match) {
           setSelectedVideoId(match.id);
+        }
+      } else {
+        // Auto-select the most underperforming recent video
+        if (vids.length > 0) {
+          const avg = vids.reduce((s, v) => s + v.views, 0) / Math.max(vids.length, 1);
+          const worst = vids.reduce((prev, curr) =>
+            (curr.views / avg) < (prev.views / avg) ? curr : prev
+          );
+          if (worst) setSelectedVideoId(worst.id);
         }
       }
     } catch (err) {
@@ -85,30 +92,17 @@ export default function VideoDeath() {
     try {
       const result = await callAI(
         `You are a brutal YouTube algorithm expert. Given this video's performance data compared to channel averages, identify exactly 3 reasons it underperformed. 
-
 Return JSON with this exact structure:
-{
-  "failure_type": "PACKAGING" | "CONTENT" | "TIMING" | "ALGORITHM",
-  "killer_reason": "Single most important reason this video failed",
-  "bottom_line": "One sentence summary",
-  "diagnosis": [
-    {"reason": "specific reason", "evidence": "data evidence", "emotional_context": "impact on creator", "fix": "actionable fix", "priority": "high|medium|low"},
-    {"reason": "...", "evidence": "...", "emotional_context": "...", "fix": "...", "priority": "..."},
-    {"reason": "...", "evidence": "...", "emotional_context": "...", "fix": "...", "priority": "..."}
-  ]
-}
-
+{"failure_type":"PACKAGING|CONTENT|TIMING|ALGORITHM","killer_reason":"Single most important reason this video failed","bottom_line":"One sentence summary","diagnosis":[{"reason":"specific reason","evidence":"data evidence","emotional_context":"impact on creator","fix":"actionable fix","priority":"high|medium|low"},{"reason":"...","evidence":"...","emotional_context":"...","fix":"...","priority":"..."},{"reason":"...","evidence":"...","emotional_context":"...","fix":"...","priority":"..."}]}
 Be specific, be brutal, be helpful.`,
         `Channel: ${channel.name} (${formatCount(channel.subscribers)} subs)
 Channel averages: ${formatCount(avgViews)} views, ${avgLikes} likes, ${avgComments} comments per video
-
 THIS VIDEO:
 Title: "${video.title}"
 Views: ${formatCount(video.views)} (${video.views < avgViews ? "BELOW" : "ABOVE"} average by ${Math.abs(Math.round((video.views / avgViews - 1) * 100))}%)
 Likes: ${video.likes}
 Comments: ${video.comments}
 Published: ${video.publishedAt} (${publishDay})
-
 Why did this video underperform?`
       );
 
@@ -137,7 +131,6 @@ Why did this video underperform?`
 
   return (
     <FeaturePage emoji="💀" title="Autopsy Room" description="Select any video and get a brutally honest diagnosis with actionable fixes">
-      {/* Video Grid Selector */}
       <div className="mb-6">
         {loadingVideos ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -151,28 +144,12 @@ Why did this video underperform?`
               const isBelow = v.views < avgViews * 0.6;
               const isAbove = v.views > avgViews * 1.2;
               const isSelected = selectedVideoId === v.id;
-              
               return (
-                <motion.div
-                  key={v.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setSelectedVideoId(v.id)}
-                  className={`cursor-pointer rounded-xl overflow-hidden transition-all ${
-                    isSelected 
-                      ? 'ring-2 ring-destructive shadow-[0_0_20px_rgba(248,113,113,0.3)]' 
-                      : 'hover:ring-1 hover:ring-border'
-                  }`}
-                  style={{ background: "hsl(var(--background-card))", border: "1px solid hsl(var(--border))" }}
-                >
+                <motion.div key={v.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setSelectedVideoId(v.id)} className={`cursor-pointer rounded-xl overflow-hidden transition-all ${isSelected ? 'ring-2 ring-destructive shadow-[0_0_20px_rgba(248,113,113,0.3)]' : 'hover:ring-1 hover:ring-border'}`} style={{ background: "hsl(var(--background-card))", border: "1px solid hsl(var(--border))" }}>
                   <div className="relative">
-                    <img src={v.thumbnail} alt={v.title} className="w-full aspect-video object-cover" />
+                    <img src={v.thumbnail} alt={v.title} className="w-full aspect-video object-cover" loading="lazy" />
                     <div className="absolute top-2 right-2">
-                      {isBelow ? (
-                        <Skull className="h-5 w-5 text-destructive drop-shadow-lg" />
-                      ) : isAbove ? (
-                        <Flame className="h-5 w-5 text-success drop-shadow-lg" />
-                      ) : null}
+                      {isBelow ? <Skull className="h-5 w-5 text-destructive drop-shadow-lg" /> : isAbove ? <Flame className="h-5 w-5 text-success drop-shadow-lg" /> : null}
                     </div>
                   </div>
                   <div className="p-3">
@@ -188,17 +165,8 @@ Why did this video underperform?`
 
       <AnimatePresence>
         {selectedVideoId && !loading && diagnosis.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-          >
-            <Button
-              variant="destructive"
-              size="lg"
-              className="w-full h-14 rounded-xl text-lg font-bold mb-8 animate-pulse"
-              onClick={runDiagnosis}
-            >
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            <Button variant="destructive" size="lg" className="w-full h-14 rounded-xl text-lg font-bold mb-8 animate-pulse" onClick={runDiagnosis}>
               <Skull className="mr-2 h-5 w-5" /> Run Autopsy
             </Button>
           </motion.div>
@@ -206,54 +174,27 @@ Why did this video underperform?`
       </AnimatePresence>
 
       {loading && (
-        <LoadingSteps
-          steps={["Fetching video data...", "Analysing performance patterns...", "Generating brutal diagnosis..."]}
-          currentStep={loadStep}
-        />
+        <LoadingSteps steps={["Fetching video data...", "Analysing performance patterns...", "Generating brutal diagnosis..."]} currentStep={loadStep} />
       )}
 
       <AnimatePresence>
-        {/* Layer 1 — Verdict Card */}
         {killer && failureType && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="cb-card mb-6"
-            style={{ 
-              boxShadow: "0 0 20px rgba(248,113,113,0.08)",
-              borderColor: "rgba(248,113,113,0.15)"
-            }}
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="cb-card mb-6" style={{ boxShadow: "0 0 20px rgba(248,113,113,0.08)", borderColor: "rgba(248,113,113,0.15)" }}>
             <div className="text-center">
-              <span 
-                className="inline-block px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider mb-4"
-                style={{ background: "hsl(var(--destructive) / 0.12)", color: "hsl(var(--destructive))" }}
-              >
+              <span className="inline-block px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider mb-4" style={{ background: "hsl(var(--destructive) / 0.12)", color: "hsl(var(--destructive))" }}>
                 {failureType}
               </span>
-              <p className="text-2xl font-bold mb-2">{killer}</p>
+              <p className="text-2xl font-bold font-display mb-2">{killer}</p>
               <p className="text-sm text-primary">Fix this first.</p>
             </div>
           </motion.div>
         )}
 
-        {/* Layer 2 — Diagnosis Cards */}
         {diagnosis.length > 0 && (
           <div className="space-y-4 mb-8">
             {diagnosis.slice(0, showFullAnalysis ? diagnosis.length : 3).map((d, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -40 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.15 }}
-                className="cb-card relative"
-              >
-                {/* Priority dot */}
-                <div 
-                  className="absolute top-4 right-4 h-3 w-3 rounded-full"
-                  style={{ background: priorityColor(d.priority) }}
-                />
-                
+              <motion.div key={i} initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.15 }} className="cb-card relative">
+                <div className="absolute top-4 right-4 h-3 w-3 rounded-full" style={{ background: priorityColor(d.priority) }} />
                 <div className="flex items-start gap-3 mb-3">
                   <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
                     <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -261,9 +202,7 @@ Why did this video underperform?`
                   <div className="flex-1">
                     <p className="text-lg font-semibold mb-1">{d.reason}</p>
                     <p className="text-sm" style={{ color: "hsl(var(--primary))" }}>{d.evidence}</p>
-                    {d.emotional_context && (
-                      <p className="text-xs text-muted-foreground mt-1 italic">{d.emotional_context}</p>
-                    )}
+                    {d.emotional_context && <p className="text-xs text-muted-foreground mt-1 italic">{d.emotional_context}</p>}
                   </div>
                   <CopyButton text={`${d.reason}\n${d.evidence}\n${d.fix}`} />
                 </div>
@@ -276,13 +215,8 @@ Why did this video underperform?`
                 </div>
               </motion.div>
             ))}
-
             {diagnosis.length > 3 && !showFullAnalysis && (
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => setShowFullAnalysis(true)}
-              >
+              <Button variant="ghost" className="w-full" onClick={() => setShowFullAnalysis(true)}>
                 See Complete Breakdown <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             )}
