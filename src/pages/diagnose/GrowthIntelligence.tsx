@@ -9,7 +9,7 @@ import LoadingSteps from "@/components/LoadingSteps";
 import ShareInsight from "@/components/ShareInsight";
 import { useChannelData } from "@/hooks/useChannelData";
 import { callAI, parseJsonSafely } from "@/lib/ai-service";
-import { formatCount } from "@/lib/youtube-api";
+import { formatCount } from "@/lib/utils";
 
 const s = (v: any): string => typeof v === 'string' ? v : Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
 

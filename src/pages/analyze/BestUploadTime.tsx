@@ -5,7 +5,8 @@ import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import { useNavigate } from "react-router-dom";
 import { isChannelConnected } from "@/lib/youtube-api";
-import { getMyChannel, getRecentVideos, getChannelContext, formatCount } from "@/lib/youtube-api";
+import { getMyChannel, getRecentVideos, getChannelContext } from "@/lib/youtube-api";
+import { formatCount } from "@/lib/utils";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 
 interface UploadTimeData {

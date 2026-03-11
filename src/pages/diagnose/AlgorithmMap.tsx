@@ -5,7 +5,7 @@ import FeaturePage from "@/components/FeaturePage";
 import GameLoader from "@/components/GameLoader";
 import CopyButton from "@/components/CopyButton";
 import { useChannelData } from "@/hooks/useChannelData";
-import { formatCount } from "@/lib/youtube-api";
+import { formatCount } from "@/lib/utils";
 import { callAI, parseJsonSafely } from "@/lib/ai-service";
 import { friendlyError } from "@/lib/errors";
 

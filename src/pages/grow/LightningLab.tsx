@@ -5,7 +5,7 @@ import LoadingSteps from "@/components/LoadingSteps";
 import ShareInsight from "@/components/ShareInsight";
 import { useChannelData } from "@/hooks/useChannelData";
 import { callAI, parseJsonFromAI } from "@/lib/ai-service";
-import { formatCount } from "@/lib/youtube-api";
+import { formatCount } from "@/lib/utils";
 import type { VideoData } from "@/lib/youtube-api";
 import VideoModal from "@/components/VideoModal";
 

@@ -7,7 +7,8 @@ import LoadingSteps from "@/components/LoadingSteps";
 import CopyButton from "@/components/CopyButton";
 import { useNavigate } from "react-router-dom";
 import { isChannelConnected } from "@/lib/youtube-api";
-import { getMyChannel, getRecentVideos, getChannelContext, formatCount, type VideoData } from "@/lib/youtube-api";
+import { getMyChannel, getRecentVideos, getChannelContext, type VideoData } from "@/lib/youtube-api";
+import { formatCount } from "@/lib/utils";
 import { callGroq, parseJsonFromResponse } from "@/lib/groq-api";
 
 export default function OutlierSpotter() {
