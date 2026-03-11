@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Zap, Sun, Moon, LogOut } from "lucide-react";
 import { isChannelConnected, clearChannelData, formatCount, type ChannelData } from "@/lib/youtube-api";
+import AIStatusDot from "@/components/AIStatusDot";
 
 const modes = [
   { id: "diagnose", label: "DIAGNOSE", color: "#f87171" },
@@ -91,7 +92,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
           <div className="h-6 w-6 rounded-md flex items-center justify-center" style={{ background: "hsl(var(--primary) / 0.15)" }}>
             <Zap className="h-3.5 w-3.5 text-primary" />
           </div>
-          <span className="text-sm font-bold hidden sm:inline">CreatorBrain</span>
+          <span className="text-sm font-bold hidden sm:inline font-display">CreatorBrain</span>
         </button>
 
         <nav className="relative flex items-center gap-1">
@@ -103,6 +104,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
               className={`px-3 py-3 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                 activeMode === mode.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
+              style={activeMode === mode.id ? { color: mode.color } : undefined}
             >
               {mode.label}
             </button>
@@ -120,6 +122,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
         <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
           {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </button>
+        <AIStatusDot />
         {avatar && (
           <div className="flex items-center gap-2">
             <img src={avatar} alt={channelName} className="h-7 w-7 rounded-full object-cover ring-1 ring-border" />
