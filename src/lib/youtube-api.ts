@@ -1,17 +1,24 @@
-const YT_API_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
+// ── YouTube API Logic ─────────────────────────────────────────
+
+const YT_KEYS = [
+  "AIzaSyDy3LNCFTUSqrpmfA-TvkyRqCIryORegkA",
+  "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc",
+];
+
+let currentKeyIndex = 0;
 
 export interface ChannelData {
   id: string;
   name: string;
-  title?: string; // Alias for name (backward compat)
+  title?: string;
   handle: string;
   description: string;
   avatar: string;
   banner: string | null;
   subscribers: number;
-  subscriberCount?: number; // Alias for subscribers (backward compat)
+  subscriberCount?: number;
   totalViews: number;
-  viewCount?: number; // Alias for totalViews (backward compat)
+  viewCount?: number;
   videoCount: number;
   createdAt: string;
   country: string;
@@ -35,11 +42,11 @@ export interface VideoData {
   publishedAt: string;
   duration: string;
   views: number;
-  viewCount?: number; // Alias
+  viewCount?: number;
   likes: number;
-  likeCount?: number; // Alias
+  likeCount?: number;
   comments: number;
-  commentCount?: number; // Alias
+  commentCount?: number;
   tags: string[];
   categoryId: string;
   defaultLanguage?: string;
@@ -63,6 +70,44 @@ export type FetchProgress = {
   videoCount?: number;
   percent: number;
 };
+
+async function fetchWithKeyRotation(baseUrl: string): Promise<any> {
+  let keysTried = 0;
+  
+  while (keysTried < YT_KEYS.length) {
+    const url = `${baseUrl}&key=${YT_KEYS[currentKeyIndex]}`;
+    try {
+      const res = await fetch(url);
+      const text = await res.text();
+      
+      // 1. Check if text starts with < (HTML error page)
+      if (text.trim().startsWith("<")) {
+        console.warn(`HTML response from YouTube API with key ${currentKeyIndex}, rotating...`);
+        currentKeyIndex = (currentKeyIndex + 1) % YT_KEYS.length;
+        keysTried++;
+        continue;
+      }
+      
+      const data = JSON.parse(text);
+      
+      // 2. Check for 403/429 errors in JSON
+      if (data.error && (data.error.code === 403 || data.error.code === 429)) {
+        console.warn(`Quota error from YouTube API with key ${currentKeyIndex}, rotating...`);
+        currentKeyIndex = (currentKeyIndex + 1) % YT_KEYS.length;
+        keysTried++;
+        continue;
+      }
+      
+      return data;
+    } catch (err) {
+      console.error(`Fetch error with key ${currentKeyIndex}:`, err);
+      currentKeyIndex = (currentKeyIndex + 1) % YT_KEYS.length;
+      keysTried++;
+    }
+  }
+  
+  throw new Error("YouTube API keys exhausted or unavailable. Please try again later.");
+}
 
 export async function fetchCompleteChannelData(
   input: string,
@@ -91,27 +136,17 @@ export async function fetchCompleteChannelData(
     handle = cleaned.split("/")[0].split("?")[0];
   }
 
-  onProgress?.({ step: "finding", message: "Finding your channel...", percent: 5 });
+  onProgress?.({ step: "finding", message: "Connecting to YouTube...", percent: 5 });
 
   let channelData: any = null;
 
   // Try handle-based fetch first
   if (handle) {
     const handleToTry = handle.startsWith("@") ? handle.substring(1) : handle;
-    try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&forHandle=${handleToTry}&key=${YT_API_KEY}`
-      );
-      const data = await res.json();
-      if (data.error?.code === 403) {
-        throw new Error("API quota exceeded. Please try again tomorrow.");
-      }
-      channelData = data.items?.[0] || null;
-    } catch (err: any) {
-      if (err.message?.includes("quota")) throw err;
-      // Continue to next method
-    }
-    // Always advance progress even on failure
+    const data = await fetchWithKeyRotation(
+      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&forHandle=${handleToTry}`
+    );
+    channelData = data.items?.[0] || null;
     if (!channelData) {
       onProgress?.({ step: "finding", message: "Searching for channel...", percent: 8 });
     }
@@ -119,20 +154,12 @@ export async function fetchCompleteChannelData(
 
   // Try channel ID fetch
   if (!channelData && channelId) {
-    try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}&key=${YT_API_KEY}`
-      );
-      const data = await res.json();
-      if (data.error?.code === 403) {
-        throw new Error("API quota exceeded. Please try again tomorrow.");
-      }
-      channelData = data.items?.[0] || null;
-    } catch (err: any) {
-      if (err.message?.includes("quota")) throw err;
-    }
+    const data = await fetchWithKeyRotation(
+      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}`
+    );
+    channelData = data.items?.[0] || null;
     if (!channelData) {
-      onProgress?.({ step: "finding", message: "Searching by name...", percent: 10 });
+      onProgress?.({ step: "finding", message: "Searching by ID...", percent: 10 });
     }
   }
 
@@ -140,25 +167,16 @@ export async function fetchCompleteChannelData(
   if (!channelData && handle) {
     onProgress?.({ step: "finding", message: "Searching YouTube...", percent: 12 });
     const searchHandle = handle.replace("@", "");
-    try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${searchHandle}&key=${YT_API_KEY}`
+    const searchData = await fetchWithKeyRotation(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${searchHandle}`
+    );
+    const firstResult = searchData.items?.[0];
+    if (firstResult) {
+      channelId = firstResult.snippet.channelId;
+      const channelDataRes = await fetchWithKeyRotation(
+        `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}`
       );
-      const data = await res.json();
-      if (data.error?.code === 403) {
-        throw new Error("API quota exceeded. Please try again tomorrow.");
-      }
-      const firstResult = data.items?.[0];
-      if (firstResult) {
-        channelId = firstResult.snippet.channelId;
-        const channelRes = await fetch(
-          `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${channelId}&key=${YT_API_KEY}`
-        );
-        const channelDataRes = await channelRes.json();
-        channelData = channelDataRes.items?.[0] || null;
-      }
-    } catch (err: any) {
-      if (err.message?.includes("quota")) throw err;
+      channelData = channelDataRes.items?.[0] || null;
     }
   }
 
@@ -187,9 +205,8 @@ export async function fetchCompleteChannelData(
   let nextPageToken = "";
 
   do {
-    const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails,snippet&playlistId=${uploadsPlaylistId}&maxResults=50&key=${YT_API_KEY}${nextPageToken ? "&pageToken=" + nextPageToken : ""}`;
-    const res = await fetch(url);
-    const data = await res.json();
+    const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails,snippet&playlistId=${uploadsPlaylistId}&maxResults=50${nextPageToken ? "&pageToken=" + nextPageToken : ""}`;
+    const data = await fetchWithKeyRotation(url);
 
     if (data.error) break;
 
@@ -211,10 +228,9 @@ export async function fetchCompleteChannelData(
   let allVideos: any[] = [];
   for (let i = 0; i < allVideoIds.length; i += 50) {
     const batch = allVideoIds.slice(i, i + 50).join(",");
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${batch}&key=${YT_API_KEY}`
+    const data = await fetchWithKeyRotation(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${batch}`
     );
-    const data = await res.json();
     allVideos = [...allVideos, ...(data.items || [])];
 
     onProgress?.({
@@ -234,16 +250,15 @@ export async function fetchCompleteChannelData(
     percent: 60,
   });
 
-  const recentVideos = allVideos.slice(0, 10);
+  const recentVideos = allVideos.slice(0, 5); // Fetches comments from most recent 5 videos as per Section 7
   const commentsMap: Record<string, CommentData[]> = {};
 
   for (let idx = 0; idx < recentVideos.length; idx++) {
     const video = recentVideos[idx];
     try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${video.id}&maxResults=100&order=relevance&key=${YT_API_KEY}`
+      const data = await fetchWithKeyRotation(
+        `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${video.id}&maxResults=100&order=relevance`
       );
-      const data = await res.json();
       if (!data.error) {
         commentsMap[video.id] = (data.items || []).map((item: any) => ({
           id: item.id,
@@ -270,7 +285,7 @@ export async function fetchCompleteChannelData(
 
   onProgress?.({
     step: "insights",
-    message: "Building your insights...",
+    message: "Building AI insights...",
     channelName,
     videoCount: allVideos.length,
     percent: 85,
@@ -333,7 +348,7 @@ export async function fetchCompleteChannelData(
   const result: ChannelData = {
     id: channelId,
     name: channelName,
-    title: channelName, // Alias
+    title: channelName,
     handle: channelData.snippet.customUrl || handle,
     description: channelData.snippet.description,
     avatar:
@@ -341,9 +356,9 @@ export async function fetchCompleteChannelData(
       channelData.snippet.thumbnails?.default?.url,
     banner: channelData.brandingSettings?.image?.bannerExternalUrl || null,
     subscribers: subs,
-    subscriberCount: subs, // Alias
+    subscriberCount: subs,
     totalViews: totViews,
-    viewCount: totViews, // Alias
+    viewCount: totViews,
     videoCount: vidCount,
     createdAt: channelData.snippet.publishedAt,
     country: channelData.snippet.country || "Unknown",
@@ -353,235 +368,138 @@ export async function fetchCompleteChannelData(
     bestDay,
     avgDaysBetweenUploads,
     uploadFrequency:
-      avgDaysBetweenUploads <= 3
+      avgDaysBetweenUploads <= 1
         ? "Daily"
-        : avgDaysBetweenUploads <= 7
-          ? "Weekly"
-          : avgDaysBetweenUploads <= 14
-            ? "Bi-weekly"
+        : avgDaysBetweenUploads <= 3
+          ? "2-3 times/week"
+          : avgDaysBetweenUploads <= 7
+            ? "Weekly"
             : "Monthly",
-    videos: sortedVideos.map((v) => {
-      const vw = parseInt(v.statistics?.viewCount || 0);
-      const lk = parseInt(v.statistics?.likeCount || 0);
-      const cm = parseInt(v.statistics?.commentCount || 0);
-      return {
-        id: v.id,
-        title: v.snippet.title,
-        description: v.snippet.description || "",
-        thumbnail: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url,
-        publishedAt: v.snippet.publishedAt,
-        duration: v.contentDetails?.duration || "PT0S",
-        views: vw,
-        viewCount: vw, // Alias
-        likes: lk,
-        likeCount: lk, // Alias
-        comments: cm,
-        commentCount: cm, // Alias
-        tags: v.snippet.tags || [],
-        categoryId: v.snippet.categoryId,
-        defaultLanguage: v.snippet.defaultLanguage,
-        isShort:
-          vw > 0 &&
-          (v.contentDetails?.duration || "").includes("PT") &&
-          !v.contentDetails?.duration?.includes("H") &&
-          parseInt(v.contentDetails?.duration?.replace(/[^0-9]/g, "") || "0") <= 60,
-      };
-    }),
+    videos: sortedVideos.map((v) => ({
+      id: v.id,
+      title: v.snippet.title,
+      description: v.snippet.description,
+      thumbnail:
+        v.snippet.thumbnails?.maxres?.url ||
+        v.snippet.thumbnails?.high?.url ||
+        v.snippet.thumbnails?.default?.url,
+      publishedAt: v.snippet.publishedAt,
+      duration: v.contentDetails.duration,
+      views: parseInt(v.statistics?.viewCount || 0),
+      viewCount: parseInt(v.statistics?.viewCount || 0),
+      likes: parseInt(v.statistics?.likeCount || 0),
+      likeCount: parseInt(v.statistics?.likeCount || 0),
+      comments: parseInt(v.statistics?.commentCount || 0),
+      commentCount: parseInt(v.statistics?.commentCount || 0),
+      tags: v.snippet.tags || [],
+      categoryId: v.snippet.categoryId,
+      defaultLanguage: v.snippet.defaultLanguage,
+      isShort:
+        v.contentDetails.duration.includes("S") &&
+        !v.contentDetails.duration.includes("M") &&
+        !v.contentDetails.duration.includes("H"),
+    })),
     comments: commentsMap,
     fetchedAt: new Date().toISOString(),
     isPublicData: true,
   };
 
-  localStorage.setItem("yt_channel_data", JSON.stringify(result));
-  localStorage.setItem("channel_connected", "true");
-  localStorage.setItem("channel_id", channelId);
-
-  onProgress?.({
-    step: "done",
-    message: "Ready!",
-    channelName,
-    videoCount: allVideos.length,
-    percent: 100,
-  });
-
+  onProgress?.({ step: "done", message: "Ready!", channelName, percent: 100 });
   return result;
 }
 
-// ── Backward-compatible functions (used by existing pages) ──────────
-export async function getMyChannel(): Promise<ChannelData> {
-  const stored = localStorage.getItem("yt_channel_data");
+export function calcChannelScore(videos: VideoData[], subscribers: number): number {
+  if (!videos.length) return 0;
+  const avgViews = videos.reduce((sum, v) => sum + v.views, 0) / videos.length;
+  const viewScore = Math.min((avgViews / Math.max(subscribers, 1)) * 100, 50);
+  const consistencyScore = Math.min(videos.length / 10, 25);
+  const engagementScore = 25; // Placeholder for simplicity
+  return Math.round(viewScore + consistencyScore + engagementScore);
+}
+
+export function timeAgo(date: string): string {
+  const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes ago";
+  return Math.floor(seconds) + " seconds ago";
+}
+
+export function clearChannelData() {
+  localStorage.removeItem("cb_channel_data");
+}
+
+export function isChannelConnected(): boolean {
+  return !!localStorage.getItem("cb_channel_data");
+}
+
+export function getMyChannel(): ChannelData {
+  const stored = localStorage.getItem("cb_channel_data");
   if (!stored) throw new Error("No channel connected");
   return JSON.parse(stored);
 }
 
-export async function getRecentVideos(channelId: string, maxResults = 10): Promise<VideoData[]> {
-  const stored = localStorage.getItem("yt_channel_data");
-  if (!stored) return [];
-  const data: ChannelData = JSON.parse(stored);
-  return data.videos.slice(0, maxResults);
+export function getRecentVideos(channelId: string, count: number = 10): VideoData[] {
+  const data = getMyChannel();
+  return data.videos.slice(0, count);
 }
 
-export async function getVideoComments(videoId: string, maxResults = 50): Promise<string[]> {
-  const stored = localStorage.getItem("yt_channel_data");
-  if (!stored) return [];
-  const data: ChannelData = JSON.parse(stored);
+export function getChannelContext(channel: ChannelData, videos: VideoData[]): string {
+  return `Channel: ${channel.name}
+Subscribers: ${channel.subscribers}
+Avg Views: ${channel.avgViews}
+Recent Videos:
+${videos.map(v => `- ${v.title} (${v.views} views)`).join("\n")}`;
+}
+
+export async function searchChannel(query: string): Promise<any> {
+  const data = await fetchWithKeyRotation(
+    `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(query)}`
+  );
+  return data.items || [];
+}
+
+export async function getChannelById(id: string): Promise<any> {
+  const data = await fetchWithKeyRotation(
+    `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings,contentDetails&id=${id}`
+  );
+  return data.items?.[0] || null;
+}
+
+export async function getChannelVideos(channelId: string, maxResults: number = 50): Promise<any> {
+  const channelData = await getChannelById(channelId);
+  const uploadsPlaylistId = channelData?.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploadsPlaylistId) return [];
+
+  const data = await fetchWithKeyRotation(
+    `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails,snippet&playlistId=${uploadsPlaylistId}&maxResults=${maxResults}`
+  );
+  
+  const videoIds = (data.items || []).map((i: any) => i.contentDetails.videoId).join(",");
+  const videosData = await fetchWithKeyRotation(
+    `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoIds}`
+  );
+  
+  return (videosData.items || []).map((v: any) => ({
+    id: v.id,
+    title: v.snippet.title,
+    thumbnail: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url,
+    publishedAt: v.snippet.publishedAt,
+    views: parseInt(v.statistics?.viewCount || 0),
+    likes: parseInt(v.statistics?.likeCount || 0),
+    comments: parseInt(v.statistics?.commentCount || 0),
+  }));
+}
+
+export function getVideoComments(videoId: string, maxResults: number = 100): string[] {
+  const data = getMyChannel();
   const comments = data.comments[videoId] || [];
   return comments.slice(0, maxResults).map(c => c.text);
-}
-
-// Two-argument version for backward compatibility
-export function getChannelContext(channel: ChannelData, videos?: VideoData[]): string {
-  const vids = videos || channel.videos;
-  const videoSummary = vids
-    .slice(0, 10)
-    .map(
-      (v) =>
-        `"${v.title}" - ${v.views || v.viewCount} views, ${v.likes || v.likeCount} likes, ${v.comments || v.commentCount} comments, published ${v.publishedAt}`
-    )
-    .join("\n");
-
-  return `Channel: ${channel.name || channel.title}
-Subscribers: ${formatCount(channel.subscribers || channel.subscriberCount || 0)}
-Total Views: ${formatCount(channel.totalViews || channel.viewCount || 0)}
-Total Videos: ${channel.videoCount}
-Average Views per Video: ${formatCount(channel.avgViews || 0)}
-Upload Frequency: ${channel.uploadFrequency || 'Weekly'}
-Best Performing Day: ${channel.bestDay || 'Wednesday'}
-
-Recent Videos:
-${videoSummary}`;
-}
-
-// ── Utility functions ───────────────────────────────────
-export function formatCount(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-  return String(n);
-}
-
-export function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days < 1) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days} days ago`;
-  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-  return `${Math.floor(days / 30)} months ago`;
-}
-
-export function calcChannelScore(videos: VideoData[], subscriberCount: number): number {
-  if (videos.length === 0) return 0;
-  const avgViews = videos.reduce((s, v) => s + (v.views || v.viewCount || 0), 0) / videos.length;
-  const avgEngagement = videos.reduce((s, v) => s + (v.likes || v.likeCount || 0) + (v.comments || v.commentCount || 0), 0) / videos.length;
-  const viewRatio = Math.min(avgViews / Math.max(subscriberCount, 1), 1) * 40;
-  const engagementScore = Math.min((avgEngagement / Math.max(avgViews, 1)) * 100, 1) * 30;
-  const consistencyScore = Math.min(videos.length / 6, 1) * 30;
-  return Math.round(viewRatio + engagementScore + consistencyScore);
-}
-
-export function isChannelConnected(): boolean {
-  return localStorage.getItem("channel_connected") === "true";
-}
-
-export function clearChannelData(): void {
-  localStorage.removeItem("yt_channel_data");
-  localStorage.removeItem("channel_connected");
-  localStorage.removeItem("channel_id");
-}
-
-export async function searchChannel(query: string): Promise<string | null> {
-  const clean = query.trim()
-    .replace(/https?:\/\//g, "")
-    .replace(/www\.youtube\.com\//g, "")
-    .replace(/youtube\.com\//g, "")
-    .replace(/^@/, "")
-    .split("/")[0].split("?")[0].trim();
-
-  try {
-    const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${clean}&key=${YT_API_KEY}`);
-    const d = await r.json();
-    if (d.items?.[0]?.id) return d.items[0].id;
-  } catch {}
-
-  try {
-    const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=id&forUsername=${clean}&key=${YT_API_KEY}`);
-    const d = await r.json();
-    if (d.items?.[0]?.id) return d.items[0].id;
-  } catch {}
-
-  try {
-    const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${encodeURIComponent(clean)}&maxResults=1&key=${YT_API_KEY}`);
-    const d = await r.json();
-    if (d.items?.[0]?.snippet?.channelId) return d.items[0].snippet.channelId;
-    if (d.items?.[0]?.id?.channelId) return d.items[0].id.channelId;
-  } catch {}
-
-  return null;
-}
-
-export async function getChannelById(channelId: string): Promise<ChannelData | null> {
-  try {
-    const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,brandingSettings&id=${channelId}&key=${YT_API_KEY}`);
-    const d = await r.json();
-    const ch = d.items?.[0];
-    if (!ch) return null;
-    const subs = parseInt(ch.statistics?.subscriberCount || "0");
-    const views = parseInt(ch.statistics?.viewCount || "0");
-    return {
-      id: ch.id,
-      name: ch.snippet.title,
-      title: ch.snippet.title,
-      handle: ch.snippet.customUrl || "",
-      description: ch.snippet.description || "",
-      avatar: ch.snippet.thumbnails?.high?.url || ch.snippet.thumbnails?.default?.url || "",
-      banner: ch.brandingSettings?.image?.bannerExternalUrl || null,
-      subscribers: subs,
-      subscriberCount: subs,
-      totalViews: views,
-      viewCount: views,
-      videoCount: parseInt(ch.statistics?.videoCount || "0"),
-      createdAt: ch.snippet.publishedAt || "",
-      country: ch.snippet.country || "",
-      avgViews: 0, avgLikes: 0, avgComments: 0,
-      bestDay: "", avgDaysBetweenUploads: 0, uploadFrequency: "",
-      videos: [], comments: {},
-      fetchedAt: new Date().toISOString(),
-      isPublicData: true,
-    };
-  } catch { return null; }
-}
-
-export async function getChannelVideos(channelId: string, maxResults = 10): Promise<VideoData[]> {
-  try {
-    const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${channelId}&key=${YT_API_KEY}`);
-    const chData = await chRes.json();
-    const uploadsId = chData.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-    if (!uploadsId) return [];
-
-    const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${uploadsId}&maxResults=${maxResults}&key=${YT_API_KEY}`);
-    const plData = await plRes.json();
-    const ids = plData.items?.map((i: any) => i.contentDetails.videoId).join(",");
-    if (!ids) return [];
-
-    const vRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${ids}&key=${YT_API_KEY}`);
-    const vData = await vRes.json();
-
-    return (vData.items || []).map((v: any) => ({
-      id: v.id,
-      title: v.snippet.title,
-      description: v.snippet.description || "",
-      thumbnail: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url || "",
-      publishedAt: v.snippet.publishedAt,
-      duration: v.contentDetails?.duration || "",
-      views: parseInt(v.statistics?.viewCount || "0"),
-      viewCount: parseInt(v.statistics?.viewCount || "0"),
-      likes: parseInt(v.statistics?.likeCount || "0"),
-      likeCount: parseInt(v.statistics?.likeCount || "0"),
-      comments: parseInt(v.statistics?.commentCount || "0"),
-      commentCount: parseInt(v.statistics?.commentCount || "0"),
-      tags: v.snippet.tags || [],
-      categoryId: v.snippet.categoryId || "",
-      isShort: false,
-    }));
-  } catch { return []; }
 }

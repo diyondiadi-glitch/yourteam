@@ -12,15 +12,15 @@ export default function AIStatusDot() {
   }, []);
 
   const colors = {
-    ok: "bg-success",
-    slow: "bg-muted-foreground",
-    limited: "bg-destructive",
+    working: "bg-success",
+    slow: "bg-yellow-500",
+    failed: "bg-destructive",
   };
 
   const labels = {
-    ok: "AI ready",
+    working: "AI ready",
     slow: "AI switching models...",
-    limited: "Retrying...",
+    failed: "Retrying...",
   };
 
   return (
@@ -29,10 +29,10 @@ export default function AIStatusDot() {
         <div className="flex items-center gap-1.5 cursor-default">
           <motion.div
             className={`h-2 w-2 rounded-full ${colors[status]}`}
-            animate={status === "limited" ? { scale: [1, 1.3, 1] } : {}}
+            animate={status === "failed" ? { scale: [1, 1.3, 1] } : {}}
             transition={{ repeat: Infinity, duration: 1.5 }}
           />
-          {status !== "ok" && (
+          {status !== "working" && (
             <span className="text-[10px] text-muted-foreground hidden sm:inline">{labels[status]}</span>
           )}
         </div>
