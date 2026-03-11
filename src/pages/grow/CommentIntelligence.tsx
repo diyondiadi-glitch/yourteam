@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import FeaturePage from "@/components/FeaturePage";
 import { useChannelData } from "@/hooks/useChannelData";
-import { callAI, safeJsonParse } from "@/lib/ai-service";
+import { callAI, parseJsonSafely } from "@/lib/ai-service";
 import { Loader2, MessageSquare, Lightbulb, HelpCircle, AlertCircle, Smile } from "lucide-react";
 
 interface CommentAnalysis {
@@ -60,7 +60,7 @@ export default function CommentIntelligence() {
         { maxTokens: 700, temperature: 0.5 } 
       ); 
 
-      const parsed = safeJsonParse(result);
+      const parsed = parseJsonSafely(result);
       
       // Map JSON keys to existing state structure
       const mappedResult = parsed ? {
