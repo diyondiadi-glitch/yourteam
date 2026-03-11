@@ -42,61 +42,51 @@ export default function VideoDeath() {
   }, [isConnected, videos.length]);
 
   async function runAutopsy(videoId: string) {
-    const selectedVideo = videos.find(v => v.id === videoId);
-    if (!selectedVideo || !channel) return;
+    const video = videos.find(v => v.id === videoId);
+    if (!video || !channel) return;
 
     setSelectedId(videoId);
     setLoading(true);
     setResult(null);
 
-    const avgViews = Math.round(
-      videos.reduce((sum: number, v: any) => sum + (Number(v.views) || 0), 0) / (videos.length || 1)
-    );
+    const avgViews = Math.round(videos.reduce((sum, v) => sum + (Number(v.views) || 0), 0) / videos.length);
 
     try {
-      const systemPrompt = `You are a brutally honest YouTube analyst. Return ONLY valid JSON, no markdown, no explanation, no text before or after the JSON object.`;
+      const autopsyPrompt = `You are a brutally honest YouTube analyst. Diagnose exactly why THIS specific video underperformed. 
 
-      const userPrompt = `Diagnose exactly why this specific video underperformed. Use the real numbers provided — do not invent data. 
-
-VIDEO: 
-Title: "${selectedVideo.title}" 
-Views: ${Number(selectedVideo.views)} 
-Published: ${selectedVideo.publishedAt} 
+VIDEO DATA: 
+Title: "${video.title}" 
+Views: ${video.views} 
+Likes: ${video.likes ?? 'unknown'} 
+Comments: ${video.comments ?? 'unknown'}  
+Published: ${video.publishedAt} 
 Channel avg views: ${avgViews} 
-Performance: ${Number(selectedVideo.views) < avgViews 
-  ? Math.round(((avgViews - Number(selectedVideo.views)) / avgViews) * 100) + "% BELOW channel average" 
-  : Math.round(((Number(selectedVideo.views) - avgViews) / avgViews) * 100) + "% ABOVE channel average"} 
-Channel name: ${channel?.name || "this channel"} 
-Channel subscribers: ${channel?.subscribers || "unknown"} 
+Performance: ${video.views < avgViews ? Math.round(((avgViews - video.views) / avgViews) * 100) + '% BELOW average' : Math.round(((video.views - avgViews) / avgViews) * 100) + '% ABOVE average'} 
 
-Return this exact JSON structure: 
+Return ONLY valid JSON, no markdown: 
 { 
-  "primaryKiller": "one specific reason using the actual title words and view numbers", 
+  "primaryKiller": "specific reason using the actual title and view numbers above", 
   "diagnoses": [ 
     { 
-      "reason": "specific issue referencing this exact video title", 
-      "evidence": "use the real number ${Number(selectedVideo.views)} views vs ${avgViews} average", 
-      "fix": "one action verb sentence specific to this video" 
+      "reason": "specific issue with THIS video title/topic", 
+      "evidence": "use the real numbers: ${video.views} views vs ${avgViews} channel average", 
+      "fix": "one specific action verb sentence" 
     }, 
     { 
-      "reason": "second distinct issue", 
-      "evidence": "evidence using real data", 
-      "fix": "one action verb sentence" 
+      "reason": "second specific issue", 
+      "evidence": "evidence using real data from above", 
+      "fix": "one specific action verb sentence" 
     }, 
     { 
-      "reason": "third distinct issue", 
-      "evidence": "evidence using real data", 
-      "fix": "one action verb sentence" 
+      "reason": "third specific issue", 
+      "evidence": "evidence using real data from above", 
+      "fix": "one specific action verb sentence" 
     } 
   ], 
-  "resurrectSteps": [ 
-    "specific step 1 mentioning this video title", 
-    "specific step 2", 
-    "specific step 3" 
-  ] 
-}`;
+  "resurrectSteps": ["step 1 specific to this video", "step 2", "step 3"] 
+ }`;
 
-      const aiResponse = await callAI(systemPrompt, userPrompt, { maxTokens: 800, temperature: 0.7 });
+      const aiResponse = await callAI(autopsyPrompt, "");
       const parsed = parseJsonSafely(aiResponse);
       
       // Map JSON keys to existing state structure if needed

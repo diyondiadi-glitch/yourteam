@@ -13,60 +13,31 @@ export default function AudienceIntelligence() {
   const [error, setError] = useState<string | null>(null);
   const [audienceData, setAudienceData] = useState<any>(null);
 
-  useEffect(() => { 
-   const stored = localStorage.getItem("yt_channel_data"); 
-   if (!stored) { setError("No channel data found. Go back to dashboard."); return; } 
-   
-   const channel = JSON.parse(stored); 
-   if (!channel) { setError("No channel data found."); return; } 
- 
-   setLoading(true); 
-   
-   const videoSummary = (channel.videos || []) 
-     .slice(0, 10) 
-     .map((v: any) => `"${v.title}" - ${v.views} views`) 
-     .join(", "); 
- 
-   callAI( 
-     `You are a YouTube audience analyst. Return ONLY valid JSON. Start with { and end with }. No markdown.`, 
-     `Analyze the audience for this YouTube channel. 
- 
- Channel: ${channel.name} 
- Subscribers: ${channel.subscribers} 
- Avg views per video: ${channel.avgViews} 
- Best upload day: ${channel.bestDay} 
- Recent videos: ${videoSummary} 
- 
- Return exactly this JSON: 
- { 
-   "demographics": { 
-     "primary_age": "age range", 
-     "gender_split": "e.g. 60% male 40% female", 
-     "location": "primary country/region" 
-   }, 
-   "psychographics": { 
-     "interests": ["interest 1", "interest 2", "interest 3"], 
-     "motivation": "why they watch", 
-     "content_preference": "what style they prefer" 
-   }, 
-   "what_converts": "what makes them subscribe", 
-   "what_repels": "what makes them leave", 
-   "ideal_next_video": "specific video idea for this audience" 
- }`, 
-     { maxTokens: 600, temperature: 0.6 } 
-   ).then(result => { 
-     const parsed = parseJsonSafely(result); 
-     if (parsed) { 
-       setAudienceData(parsed); 
-     } else { 
-       setError("Could not analyze audience. Please try again."); 
-     } 
-     setLoading(false); 
-   }).catch(() => { 
-     setError("AI failed. Please try again."); 
-     setLoading(false); 
-   }); 
- }, []); 
+  useEffect(() => {
+    if (!channel || !videos?.length) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    const videoSummary = videos.slice(0, 10).map(v => 
+      `"${v.title}" - ${v.views} views`
+    ).join(", ");
+    
+    callAI(
+      `You are a YouTube audience analyst. Return ONLY valid JSON, no markdown. 
+Format: {"demographics":{"primary_age":"string","gender_split":"string","location":"string"},"psychographics":{"interests":["string"],"motivation":"string","content_preference":"string"},"what_converts":"string","what_repels":"string","ideal_next_video":"string"}`,
+      `Channel: ${channel.name}. ${channel.subscribers} subscribers. Avg views: ${channel.avgViews}. Best day: ${channel.bestDay}. Top videos: ${videoSummary}`,
+      { maxTokens: 600, temperature: 0.6 }
+    ).then(result => {
+      const parsed = parseJsonSafely(result);
+      if (parsed) setAudienceData(parsed);
+      else setError("Could not analyze audience. Try again.");
+      setLoading(false);
+    }).catch(() => {
+      setError("AI failed. Please try again.");
+      setLoading(false);
+    });
+  }, [channel?.id, videos?.length]);
 
   if (dataLoading || loading) {
     return (
