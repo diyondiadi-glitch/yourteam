@@ -3,99 +3,169 @@ import { motion } from "framer-motion";
 import FeaturePage from "@/components/FeaturePage";
 import LoadingSteps from "@/components/LoadingSteps";
 import { useChannelData } from "@/hooks/useChannelData";
-import { callAI, parseJsonFromAI } from "@/lib/ai-service";
+import { callAI, parseJsonSafely } from "@/lib/ai-service";
 import ShareInsight from "@/components/ShareInsight";
+import { AlertCircle, Users, Target, MapPin, Smile, Frown, Lightbulb } from "lucide-react";
 
 export default function AudienceIntelligence() {
   const { channel, videos, loading: dataLoading, channelContext } = useChannelData();
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(0);
-  const [data, setData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [audienceData, setAudienceData] = useState<any>(null);
 
-  useEffect(() => { if (channel && videos.length > 0 && !data) analyse(); }, [channel, videos]);
-
-  async function analyse() {
-    setLoading(true); setStep(0);
-    try {
-      setStep(1);
-      const res = await callAI(
-        "Analyse this YouTube channel's audience. Return JSON: { top_converter: {title: string, rate: number}, avg_conversion: number, best_format: string, worst_format: string, persona: {name: string, age_range: string, interests: [string], pain_points: [string], content_preferences: [string]}, conversion_by_format: [{format: string, rate: number}], cta_timing: string }",
-        channelContext
-      );
-      setStep(2);
-      setData(parseJsonFromAI(res));
-    } catch {}
-    setLoading(false);
-  }
+  useEffect(() => {
+    if (!channel || !videos?.length) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    const videoSummary = videos.slice(0, 10).map(v => 
+      `"${v.title}" - ${v.views} views`
+    ).join(", ");
+    
+    callAI(
+      `You are a YouTube audience analyst. Return ONLY valid JSON, no markdown. 
+Format: {"demographics":{"primary_age":"string","gender_split":"string","location":"string"},"psychographics":{"interests":["string"],"motivation":"string","content_preference":"string"},"what_converts":"string","what_repels":"string","ideal_next_video":"string"}`,
+      `Channel: ${channel.name}. ${channel.subscribers} subscribers. Avg views: ${channel.avgViews}. Best day: ${channel.bestDay}. Top videos: ${videoSummary}`,
+      { maxTokens: 600, temperature: 0.6 }
+    ).then(result => {
+      const parsed = parseJsonSafely(result);
+      if (parsed) setAudienceData(parsed);
+      else setError("Could not analyze audience. Try again.");
+      setLoading(false);
+    }).catch(() => {
+      setError("AI failed. Please try again.");
+      setLoading(false);
+    });
+  }, [channel?.id, videos?.length]);
 
   if (dataLoading || loading) {
     return (
       <FeaturePage emoji="👥" title="Audience Intelligence" description="Who your audience is and what converts them">
-        <LoadingSteps steps={["Analysing audience...", "Building persona...", "Done"]} currentStep={step} />
+        <div className="flex flex-col items-center justify-center py-20">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="mb-4"
+          >
+            <Users className="h-10 w-10 text-primary" />
+          </motion.div>
+          <p className="text-zinc-400 font-medium">Analyzing audience patterns...</p>
+        </div>
+      </FeaturePage>
+    );
+  }
+
+  if (error) {
+    return (
+      <FeaturePage emoji="👥" title="Audience Intelligence" description="Who your audience is and what converts them">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <p className="text-white font-bold text-lg mb-2">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="text-sm text-zinc-400 hover:text-white underline"
+          >
+            Retry analysis
+          </button>
+        </div>
       </FeaturePage>
     );
   }
 
   return (
     <FeaturePage emoji="👥" title="Audience Intelligence" description="Who your audience is and what converts them">
-      {data ? (
-        <div className="space-y-8">
-          {/* Layer 1 — Best converter */}
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="text-center space-y-2">
-            <p className="text-lg text-muted-foreground">Best converting format</p>
-            <p className="data-number-xl" style={{ fontSize: "42px", fontWeight: 800, color: "hsl(var(--primary))" }}>{data.best_format}</p>
-            <p className="text-sm text-muted-foreground">converts {data.avg_conversion}x better than your average</p>
-          </motion.div>
+      {audienceData ? (
+        <div className="space-y-8 pb-20">
+          {/* Top Row: Demographics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+              <div className="flex items-center gap-3 mb-4">
+                <Target className="h-5 w-5 text-blue-400" />
+                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Primary Age</p>
+              </div>
+              <p className="text-2xl font-bold">{audienceData.demographics.primary_age}</p>
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+              <div className="flex items-center gap-3 mb-4">
+                <Users className="h-5 w-5 text-purple-400" />
+                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Gender Split</p>
+              </div>
+              <p className="text-2xl font-bold">{audienceData.demographics.gender_split}</p>
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl">
+              <div className="flex items-center gap-3 mb-4">
+                <MapPin className="h-5 w-5 text-red-400" />
+                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Top Location</p>
+              </div>
+              <p className="text-2xl font-bold">{audienceData.demographics.location}</p>
+            </div>
+          </div>
 
-          {/* Persona card */}
-          {data.persona && (
-            <div className="cb-card space-y-3" style={{ borderLeft: "4px solid hsl(var(--info))" }}>
-              <p className="t-label" style={{ color: "hsl(var(--info))" }}>Your Ideal Viewer</p>
-              <p className="text-lg font-bold">{data.persona.name}</p>
-              <p className="text-sm text-muted-foreground">{data.persona.age_range}</p>
-              <div className="grid sm:grid-cols-3 gap-3 mt-3">
+          {/* Middle Row: Psychographics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl">
+              <h3 className="text-xl font-bold font-display mb-6">Audience Interests</h3>
+              <div className="flex flex-wrap gap-2">
+                {audienceData.psychographics.interests.map((interest: string, i: number) => (
+                  <span key={i} className="px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-full text-sm font-medium text-zinc-300">
+                    {interest}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-8 pt-8 border-t border-zinc-800 space-y-6">
                 <div>
-                  <p className="text-xs font-semibold mb-1">Interests</p>
-                  <div className="flex flex-wrap gap-1">{data.persona.interests?.map((i: string) => <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-info/10 text-info">{i}</span>)}</div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Core Motivation</p>
+                  <p className="text-zinc-200">{audienceData.psychographics.motivation}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold mb-1">Pain Points</p>
-                  <div className="flex flex-wrap gap-1">{data.persona.pain_points?.map((p: string) => <span key={p} className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">{p}</span>)}</div>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold mb-1">Preferences</p>
-                  <div className="flex flex-wrap gap-1">{data.persona.content_preferences?.map((c: string) => <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success">{c}</span>)}</div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Content Preference</p>
+                  <p className="text-zinc-200">{audienceData.psychographics.content_preference}</p>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Conversion by format */}
-          {data.conversion_by_format && (
-            <div className="cb-card">
-              <p className="t-label text-muted-foreground mb-3">Conversion by Format</p>
-              {data.conversion_by_format.map((f: any, i: number) => (
-                <div key={i} className="flex items-center gap-3 mb-3">
-                  <span className="text-sm w-24">{f.format}</span>
-                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "hsl(var(--border))" }}>
-                    <div className="h-full rounded-full bg-primary bar-animate" style={{ width: `${Math.min(f.rate * 10, 100)}%` }} />
-                  </div>
-                  <span className="text-sm font-bold w-12 text-right">{f.rate}%</span>
+            <div className="space-y-6">
+              <div className="bg-green-500/5 border border-green-500/20 p-6 rounded-3xl">
+                <div className="flex items-center gap-3 mb-3">
+                  <Smile className="h-5 w-5 text-green-500" />
+                  <p className="font-bold text-green-500">What Converts Them</p>
                 </div>
-              ))}
+                <p className="text-zinc-300 text-sm leading-relaxed">{audienceData.what_converts}</p>
+              </div>
+              <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-3xl">
+                <div className="flex items-center gap-3 mb-3">
+                  <Frown className="h-5 w-5 text-red-500" />
+                  <p className="font-bold text-red-500">What Repels Them</p>
+                </div>
+                <p className="text-zinc-300 text-sm leading-relaxed">{audienceData.what_repels}</p>
+              </div>
             </div>
-          )}
+          </div>
 
-          {data.cta_timing && (
-            <div className="rounded-xl p-5" style={{ background: "hsl(var(--primary) / 0.06)", border: "1px solid hsl(var(--primary) / 0.15)" }}>
-              <p className="t-label text-primary mb-1">CTA Timing</p>
-              <p className="text-sm">{data.cta_timing}</p>
+          {/* Bottom Row: Next Video Recommendation */}
+          <div className="bg-yellow-500 text-black p-8 rounded-3xl relative overflow-hidden shadow-xl shadow-yellow-500/10">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <Lightbulb className="h-32 w-32" />
             </div>
-          )}
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-4">
+                <Lightbulb className="h-6 w-6" />
+                <p className="font-black uppercase tracking-widest text-xs opacity-70">Ideal Next Video</p>
+              </div>
+              <h2 className="text-3xl font-bold font-display leading-tight">{audienceData.ideal_next_video}</h2>
+              <p className="mt-4 font-medium opacity-80">This concept bridges your top performance markers with audience core motivations.</p>
+            </div>
+          </div>
 
-          <ShareInsight title="Audience Intelligence" value={data.best_format} subtitle={`Your ideal viewer: ${data.persona?.name || "—"}`} />
+          <ShareInsight title="Audience Intelligence" value={audienceData.demographics.primary_age} subtitle={`Ideal next video: ${audienceData.ideal_next_video}`} />
         </div>
-      ) : <p className="text-muted-foreground text-center py-12">No data available</p>}
+      ) : (
+        <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+          <Users className="h-12 w-12 mb-4 opacity-20" />
+          <p>No data available for this channel</p>
+        </div>
+      )}
     </FeaturePage>
   );
 }

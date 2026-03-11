@@ -26,25 +26,33 @@ export default function CommentIntelligence() {
   async function runAnalysis() {
     setLoading(true);
     try {
-      // Flatten comments from most recent 5 videos
-      const allComments = Object.values(comments).flat().slice(0, 100);
-      const commentTexts = allComments.map(c => c.text).join("\n---\n");
+      // Flatten comments from most recent 5 videos, limited to 60
+      const allComments = Object.values(comments).flat().slice(0, 60);
+      const channelName = channel?.name || "the creator";
 
-      const prompt = `You are a YouTube Audience Strategist. Analyze these comments from the creator's last 5 videos. 
-      Limit analysis to the provided 100 comments.
-      Return JSON with this structure:
-      {
-        "mood": {"word": "OneWord", "explanation": "One sentence explanation"},
-        "nextVideo": {"title": "Title", "hook": "Opening hook script", "why": "Why it works with quotes"},
-        "topRequests": [{"idea": "Idea", "count": 5, "evidence": "Quote"}],
-        "unansweredQuestions": ["Q1", "Q2", "Q3"],
-        "complaints": [{"issue": "Issue", "fix": "Suggested response"}]
-      }
-      Be specific. Use real quotes from the comments.`;
+      const result = await callAI(
+        `You are analyzing YouTube comments. Return ONLY valid JSON, zero markdown, zero explanation. 
+Format: {"mood":"Hyped|Loyal|Curious|Mixed|Disappointed","mood_reason":"one sentence","next_video":{"title":"string","hook":"string","why":"string"},"top_requests":[{"idea":"string","count":2,"example":"string"}],"audience_insight":"one sentence"}`,
+        `Analyze these ${allComments.length} YouTube comments from channel "${channelName}": ${allComments.map(c => c.text || c.textDisplay || c).join(" | ")}`,
+        { maxTokens: 800, temperature: 0.5 }
+      );
 
-      const aiResponse = await callAI(prompt, `Comments:\n${commentTexts}`, { maxTokens: 2500 });
-      const parsed = safeJsonParse(aiResponse);
-      setAnalysis(parsed);
+      const parsed = parseJsonSafely(result);
+      
+      // Map JSON keys to existing state structure
+      const mappedResult = parsed ? {
+        mood: { word: parsed.mood, explanation: parsed.mood_reason },
+        nextVideo: parsed.next_video,
+        topRequests: parsed.top_requests.map((r: any) => ({
+          idea: r.idea,
+          count: r.count,
+          evidence: r.example
+        })),
+        unansweredQuestions: [parsed.audience_insight],
+        complaints: [] // Simplified structure
+      } : null;
+
+      setAnalysis(mappedResult as any);
     } catch (e) {
       // Fallback
       setAnalysis({

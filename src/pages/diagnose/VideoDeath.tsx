@@ -49,30 +49,58 @@ export default function VideoDeath() {
     setLoading(true);
     setResult(null);
 
+    const avgViews = Math.round(videos.reduce((sum, v) => sum + (Number(v.views) || 0), 0) / videos.length);
+
     try {
-      const prompt = `You are a YouTube growth expert performing a "Video Autopsy". Analyze why this video underperformed. 
-      Return JSON with this structure:
-      {
-        "killer": "One bold sentence explaining the primary reason for failure",
-        "diagnosis": [
-          {"reason": "Reason 1", "evidence": "Stats evidence", "fix": "Specific fix"},
-          {"reason": "Reason 2", "evidence": "Stats evidence", "fix": "Specific fix"},
-          {"reason": "Reason 3", "evidence": "Stats evidence", "fix": "Specific fix"}
-        ],
-        "resurrection": ["Step 1", "Step 2", "Step 3"]
-      }
-      Never claim to have retention data. Use title-to-views ratio and comment sentiment as evidence.`;
+      const autopsyPrompt = `You are a brutally honest YouTube analyst. Diagnose exactly why THIS specific video underperformed. 
 
-      const aiResponse = await callAI(prompt, 
-        `Video: "${video.title}"
-        Views: ${video.views} (Channel Avg: ${Math.round(avgViews)})
-        Likes: ${video.likes}
-        Comments: ${video.comments}
-        Published: ${new Date(video.publishedAt).toDateString()}`
-      );
+VIDEO DATA: 
+Title: "${video.title}" 
+Views: ${video.views} 
+Likes: ${video.likes ?? 'unknown'} 
+Comments: ${video.comments ?? 'unknown'}  
+Published: ${video.publishedAt} 
+Channel avg views: ${avgViews} 
+Performance: ${video.views < avgViews ? Math.round(((avgViews - video.views) / avgViews) * 100) + '% BELOW average' : Math.round(((video.views - avgViews) / avgViews) * 100) + '% ABOVE average'} 
 
-      const parsed = safeJsonParse(aiResponse);
-      setResult(parsed);
+Return ONLY valid JSON, no markdown: 
+{ 
+  "primaryKiller": "specific reason using the actual title and view numbers above", 
+  "diagnoses": [ 
+    { 
+      "reason": "specific issue with THIS video title/topic", 
+      "evidence": "use the real numbers: ${video.views} views vs ${avgViews} channel average", 
+      "fix": "one specific action verb sentence" 
+    }, 
+    { 
+      "reason": "second specific issue", 
+      "evidence": "evidence using real data from above", 
+      "fix": "one specific action verb sentence" 
+    }, 
+    { 
+      "reason": "third specific issue", 
+      "evidence": "evidence using real data from above", 
+      "fix": "one specific action verb sentence" 
+    } 
+  ], 
+  "resurrectSteps": ["step 1 specific to this video", "step 2", "step 3"] 
+ }`;
+
+      const aiResponse = await callAI(autopsyPrompt, "");
+      const parsed = parseJsonSafely(aiResponse);
+      
+      // Map JSON keys to existing state structure if needed
+      const resultData = parsed ? {
+        killer: parsed.primaryKiller,
+        diagnosis: parsed.diagnoses.map((d: any) => ({
+          reason: d.reason,
+          evidence: d.evidence,
+          fix: d.fix
+        })),
+        resurrection: parsed.resurrectSteps
+      } : null;
+
+      setResult(resultData);
       
       // Smooth scroll to diagnosis
       setTimeout(() => {
