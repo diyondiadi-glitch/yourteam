@@ -1,249 +1,180 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Skull, Zap, AlertTriangle, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
-import FeaturePage from "@/components/FeaturePage";
-import { useChannelData } from "@/hooks/useChannelData";
-import { type VideoData } from "@/lib/youtube-api";
-import { formatCount } from "@/lib/utils";
-import { callAI, safeJsonParse } from "@/lib/ai-service";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronDown, RefreshCw, Copy, Check } from "lucide-react";
+import { callAI } from "@/lib/ai-service";
 
-interface DiagnosisCard {
-  reason: string;
-  evidence: string;
-  fix: string;
-}
-
-interface AutopsyResult {
-  killer: string;
-  diagnosis: DiagnosisCard[];
-  resurrection: string[];
-}
+const sv = (v: any): string => { if (v == null) return ""; if (typeof v === "string") return v; if (Array.isArray(v)) return v.map(String).join(", "); return String(v); };
+function extractJson(t: string): any { if (!t) return null; try { return JSON.parse(t); } catch {} const s = t.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim(); try { return JSON.parse(s); } catch {} const i = s.indexOf("{"), j = s.lastIndexOf("}"); if (i !== -1 && j !== -1) { try { return JSON.parse(s.slice(i, j + 1)); } catch {} } return null; }
+function fmt(n: number): string { if (!n) return "0"; if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"; if (n >= 1e3) return (n / 1e3).toFixed(1) + "K"; return String(n); }
+const sc = (n: number) => n >= 70 ? "#4ade80" : n >= 50 ? "#facc15" : "#f87171";
 
 export default function VideoDeath() {
-  const { channel, videos, avgViews, isConnected } = useChannelData();
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [result, setResult] = useState<AutopsyResult | null>(null);
+  const navigate = useNavigate();
+  const [videos, setVideos] = useState<any[]>([]);
+  const [channel, setChannel] = useState<any>(null);
+  const [avg, setAvg] = useState(0);
+  const [maxV, setMaxV] = useState(0);
+  const [sel, setSel] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const diagnosisRef = useRef<HTMLDivElement>(null);
+  const [progress, setProgress] = useState(0);
+  const [report, setReport] = useState<any>(null);
+  const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Auto-select the worst performing video from last 30 days
   useEffect(() => {
-    if (!isConnected || !videos.length || selectedId) return;
-
-    const now = Date.now();
-    const recentVideos = videos.filter(v => (now - new Date(v.publishedAt).getTime()) / 86400000 <= 30);
-    const pool = recentVideos.length > 0 ? recentVideos : videos.slice(0, 10);
-    
-    const worst = pool.reduce((prev, curr) => (curr.views < prev.views ? curr : prev), pool[0]);
-    if (worst) {
-      setSelectedId(worst.id);
-      runAutopsy(worst.id);
+    const s = localStorage.getItem("cb_channel_data");
+    if (!s) { navigate("/"); return; }
+    const d = JSON.parse(s);
+    setChannel(d);
+    const vids: any[] = d.videos || [];
+    setVideos(vids);
+    if (vids.length > 0) {
+      const a = Math.round(vids.reduce((s: number, v: any) => s + (v.views || 0), 0) / vids.length);
+      const mx = Math.max(...vids.map((v: any) => v.views || 0));
+      setAvg(a); setMaxV(mx);
+      const worst = [...vids].sort((a, b) => (a.views || 0) - (b.views || 0))[0];
+      setSel(worst);
+      runDiag(worst, d, a);
     }
-  }, [isConnected, videos.length]);
+  }, []);
 
-  async function runAutopsy(videoId: string) {
-    const video = videos.find(v => v.id === videoId);
-    if (!video || !channel) return;
-
-    setSelectedId(videoId);
-    setLoading(true);
-    setResult(null);
-
-    const avgViews = Math.round(videos.reduce((sum, v) => sum + (Number(v.views) || 0), 0) / videos.length);
-
+  async function runDiag(video: any, ch: any, a: number) {
+    setReport(null); setError(""); setLoading(true); setProgress(15);
     try {
-      const autopsyPrompt = `You are a brutally honest YouTube analyst. Diagnose exactly why THIS specific video underperformed. 
-
-VIDEO DATA: 
-Title: "${video.title}" 
-Views: ${video.views} 
-Likes: ${video.likes ?? 'unknown'} 
-Comments: ${video.comments ?? 'unknown'}  
-Published: ${video.publishedAt} 
-Channel avg views: ${avgViews} 
-Performance: ${video.views < avgViews ? Math.round(((avgViews - video.views) / avgViews) * 100) + '% BELOW average' : Math.round(((video.views - avgViews) / avgViews) * 100) + '% ABOVE average'} 
-
-Return ONLY valid JSON, no markdown: 
-{ 
-  "primaryKiller": "specific reason using the actual title and view numbers above", 
-  "diagnoses": [ 
-    { 
-      "reason": "specific issue with THIS video title/topic", 
-      "evidence": "use the real numbers: ${video.views} views vs ${avgViews} channel average", 
-      "fix": "one specific action verb sentence" 
-    }, 
-    { 
-      "reason": "second specific issue", 
-      "evidence": "evidence using real data from above", 
-      "fix": "one specific action verb sentence" 
-    }, 
-    { 
-      "reason": "third specific issue", 
-      "evidence": "evidence using real data from above", 
-      "fix": "one specific action verb sentence" 
-    } 
-  ], 
-  "resurrectSteps": ["step 1 specific to this video", "step 2", "step 3"] 
- }`;
-
-      const aiResponse = await callAI(autopsyPrompt, "");
-      const parsed = parseJsonSafely(aiResponse);
-      
-      // Map JSON keys to existing state structure if needed
-      const resultData = parsed ? {
-        killer: parsed.primaryKiller,
-        diagnosis: parsed.diagnoses.map((d: any) => ({
-          reason: d.reason,
-          evidence: d.evidence,
-          fix: d.fix
-        })),
-        resurrection: parsed.resurrectSteps
-      } : null;
-
-      setResult(resultData);
-      
-      // Smooth scroll to diagnosis
-      setTimeout(() => {
-        diagnosisRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
-    } catch (e) {
-      setResult({
-        killer: "Packaging & Hook Disconnect",
-        diagnosis: [
-          { reason: "Low Title-to-View Ratio", evidence: `Only ${video.views} views despite ${formatCount(channel.subscribers)} subscribers.`, fix: "Use more curiosity-gap titles." },
-          { reason: "Static Intro", evidence: "Comment sentiment suggests a slow start.", fix: "Cut the first 10 seconds of fluff." },
-          { reason: "Timing", evidence: `Published on ${new Date(video.publishedAt).toLocaleDateString('en-US', {weekday: 'long'})} which is not your best day.`, fix: `Shift uploads to ${channel.bestDay}.` }
-        ],
-        resurrection: [
-          "Change the thumbnail to a high-contrast version.",
-          "Reply to the top 3 comments to boost engagement signals.",
-          "Post a community tab poll related to this video's topic."
-        ]
-      });
-    } finally {
-      setLoading(false);
-    }
+      setProgress(35);
+      const r = await callAI(
+        "Brutal YouTube algorithm expert. Specific, direct. Reference actual title and numbers.",
+        `Video autopsy. Return ONLY raw JSON:\n{"verdict":"one brutal sentence why this failed — use its exact title","failure_type":"title_problem"|"thumbnail_problem"|"wrong_topic"|"bad_timing"|"poor_hook"|"algorithm_mismatch","title_score":0-100,"title_problem":"exact issue","title_fix":"exact new title","thumbnail_problem":"exact issue","thumbnail_fix":"what to change","hook_problem":"first 30 sec issue","algorithm_reason":"why algo stopped pushing","revival_possible":true|false,"revival_strategy":"exact steps or empty","do_this_now":["action1","action2","action3"]}\nVideo:"${video.title}"\nViews:${video.views} avg:${a} = ${a > 0 ? Math.round((video.views / a) * 100) : 0}%\nLikes:${video.likes || 0} Comments:${video.comments || 0}\nChannel:${ch.name} ${ch.subscribers}subs`
+      );
+      setProgress(100);
+      const p = extractJson(r);
+      if (!p) throw new Error("Parse failed. Try again.");
+      setReport(p);
+    } catch (e: any) { setError(e?.message || "Failed. Try again."); }
+    setLoading(false);
   }
 
-  if (!isConnected) return null;
+  function pick(v: any) { setSel(v); setOpen(false); setReport(null); setError(""); if (channel && avg > 0) setTimeout(() => runDiag(v, channel, avg), 50); }
 
-  const displayVideos = videos.slice(0, 20);
+  const sortedVids = [...videos].sort((a, b) => (a.views || 0) - (b.views || 0));
 
   return (
-    <FeaturePage 
-      emoji="💀" 
-      title="Autopsy Room" 
-      description="Identify why your videos underperformed and how to resurrect them."
-    >
-      <div className="space-y-12">
-        {/* Horizontal Scrollable Row */}
-        <div className="relative group">
-          <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide snap-x">
-            {displayVideos.map((v) => {
-              const performance = v.views / avgViews;
-              const isSelected = selectedId === v.id;
-              
-              return (
-                <motion.div
-                  key={v.id}
-                  whileHover={{ y: -4 }}
-                  onClick={() => runAutopsy(v.id)}
-                  className={`flex-shrink-0 w-[140px] snap-start cursor-pointer transition-all duration-300 rounded-xl overflow-hidden border-2 ${isSelected ? "border-yellow-500 ring-4 ring-yellow-500/20" : "border-zinc-800 hover:border-zinc-700"}`}
-                >
-                  <div className="aspect-video relative">
-                    <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
-                    <div className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.5 rounded text-[8px] font-bold">
-                      {formatCount(v.views)}
-                    </div>
-                  </div>
-                  <div className="p-2 bg-zinc-900/50">
-                    <h3 className="text-[10px] font-bold line-clamp-1 mb-1">{v.title}</h3>
-                    <div className={`text-[9px] font-black uppercase ${performance < 0.7 ? "text-red-500" : performance > 1.3 ? "text-green-500" : "text-yellow-500"}`}>
-                      {performance < 1 ? `-${Math.round((1-performance)*100)}%` : `+${Math.round((performance-1)*100)}%`}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-          {/* Fades for scroll indicators */}
-          <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#09090b] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#09090b] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
+    <div className="cb-page" style={{ maxWidth: 800, margin: "0 auto" }}>
 
-        {/* Diagnosis Section */}
-        <div ref={diagnosisRef} className="min-h-[400px]">
-          <AnimatePresence mode="wait">
-            {loading ? (
-              <motion.div 
-                key="loading"
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center py-20"
-              >
-                <Loader2 className="h-12 w-12 text-yellow-500 animate-spin mb-4" />
-                <p className="text-zinc-400 font-medium">Running deep autopsy...</p>
-              </motion.div>
-            ) : result ? (
-              <motion.div
-                key="result"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-10"
-              >
-                {/* Primary Killer */}
-                <div className="text-center space-y-2">
-                  <p className="text-xs text-red-500 font-black uppercase tracking-widest">Primary Killer</p>
-                  <h2 className="text-3xl font-bold font-display max-w-2xl mx-auto">{result.killer}</h2>
-                </div>
-
-                {/* 3 Diagnosis Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {result.diagnosis.map((d, i) => (
-                    <div key={i} className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-4">
-                      <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
-                        <AlertTriangle className="h-5 w-5" />
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="font-bold text-lg">{d.reason}</h3>
-                        <p className="text-xs text-zinc-500 leading-relaxed italic">Evidence: {d.evidence}</p>
-                        <p className="text-sm text-zinc-300 leading-relaxed pt-2 border-t border-zinc-800">{d.fix}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Resurrection Section */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-6 opacity-5">
-                    <Zap className="h-32 w-32 text-yellow-500" />
-                  </div>
-                  <h3 className="text-xl font-bold font-display mb-8 flex items-center gap-2">
-                    <CheckCircle2 className="h-6 w-6 text-yellow-500" />
-                    Resurrect This Video
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {result.resurrection.map((step, i) => (
-                      <div key={i} className="flex gap-4 group">
-                        <div className="h-8 w-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-xs font-bold group-hover:bg-yellow-500 group-hover:text-black transition-colors">
-                          {i + 1}
-                        </div>
-                        <p className="text-zinc-300 text-sm leading-relaxed pt-1">{step}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-                <Skull className="h-12 w-12 mb-4 opacity-20" />
-                <p>Select a video to run an autopsy</p>
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <p className="cb-label" style={{ marginBottom: 4 }}>Diagnose / Video Autopsy</p>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: "#f0f0f1", margin: 0 }}>Why Did My Video Die?</h1>
+        <p style={{ fontSize: 13, color: "#52525b", marginTop: 4 }}>Auto-analysing your worst performing video</p>
       </div>
-    </FeaturePage>
+
+      {sel && <div style={{ marginBottom: 20 }}>
+        <div onClick={() => setOpen(!open)} className="cb-card cb-card-hover" style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+          <img src={sel.thumbnail} alt="" style={{ width: 56, height: 32, borderRadius: 6, objectFit: "cover" }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sel.title}</p>
+            <p style={{ fontSize: 11, color: "#52525b" }}>{fmt(sel.views)} views — {avg > 0 ? Math.round((sel.views / avg) * 100) : 0}% of avg</p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={(e) => { e.stopPropagation(); if (channel && avg > 0) runDiag(sel, channel, avg); }} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#60a5fa", background: "rgba(96,165,250,0.1)", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 7, minHeight: 32 }}><RefreshCw size={12} />Re-analyse</button>
+            <ChevronDown size={14} style={{ color: "#52525b", transform: open ? "rotate(180deg)" : "none", transition: "transform 200ms" }} />
+          </div>
+        </div>
+        {open && <div className="cb-card" style={{ marginTop: 4, padding: 6, maxHeight: 240, overflowY: "auto" }}>
+          {sortedVids.map(v => {
+            const dot = v.views < avg * 0.7 ? "#f87171" : v.views > avg * 1.2 ? "#4ade80" : "#facc15";
+            return <button key={v.id} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "8px 10px", background: sel?.id === v.id ? "rgba(255,255,255,0.05)" : "none", border: "none", cursor: "pointer", borderRadius: 8, marginBottom: 2 }} onClick={() => pick(v)}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flexShrink: 0 }} />
+              <img src={v.thumbnail} alt="" style={{ width: 40, height: 24, borderRadius: 4, objectFit: "cover" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "#f0f0f1", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.title}</p>
+                <p style={{ fontSize: 10, color: "#52525b" }}>{fmt(v.views)} views</p>
+              </div>
+            </button>;
+          })}
+        </div>}
+      </div>}
+
+      {sel && avg > 0 && maxV > 0 && <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 20, padding: "0 4px" }}>
+        {[{ label: "This Video", views: sel.views, color: sel.views < avg * 0.7 ? "#f87171" : sel.views > avg * 1.2 ? "#4ade80" : "#facc15" }, { label: "Avg Views", views: avg, color: "#60a5fa" }, { label: "Best Video", views: maxV, color: "#4ade80" }].map(bar => (
+          <div key={bar.label} style={{ flex: 1, textAlign: "center" }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: bar.color, marginBottom: 4 }}>{fmt(bar.views)}</p>
+            <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 6, height: 80, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${Math.max(8, (bar.views / maxV) * 100)}%`, background: bar.color, borderRadius: 6, transition: "height 600ms ease" }} />
+            </div>
+            <span className="cb-label" style={{ marginTop: 4, display: "block" }}>{bar.label}</span>
+          </div>
+        ))}
+      </div>}
+
+      {loading && <div style={{ textAlign: "center", padding: "40px 0" }}>
+        <p style={{ fontSize: 14, color: "#71717a", marginBottom: 10 }}>Performing autopsy...</p>
+        <div style={{ width: 180, height: 4, background: "#1c1c20", borderRadius: 4, margin: "0 auto" }}>
+          <div style={{ width: `${progress}%`, height: 4, background: "#f87171", borderRadius: 4, transition: "width 300ms" }} />
+        </div>
+      </div>}
+
+      {error && !loading && <div className="cb-card" style={{ textAlign: "center", padding: 20, borderColor: "rgba(248,113,113,0.2)" }}>
+        <p style={{ fontSize: 13, color: "#f87171", marginBottom: 10 }}>{error}</p>
+        <button onClick={() => { if (sel && channel && avg > 0) runDiag(sel, channel, avg); }} style={{ fontSize: 12, fontWeight: 700, color: "#f0f0f1", background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", padding: "8px 14px", borderRadius: 8 }}>Try Again</button>
+      </div>}
+
+      {report && !loading && <div className="cb-fade">
+
+        <div className="cb-card" style={{ marginBottom: 16, borderLeft: "3px solid #f87171", padding: 20 }}>
+          <span className="cb-label">The Verdict</span>
+          <p style={{ fontSize: 16, fontWeight: 800, color: "#f0f0f1", marginTop: 6, lineHeight: 1.4 }}>{sv(report.verdict)}</p>
+          {report.failure_type && <span style={{ display: "inline-block", marginTop: 8, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 8px", borderRadius: 4, background: "rgba(248,113,113,0.1)", color: "#f87171" }}>{sv(report.failure_type).replace(/_/g, " ")}</span>}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }} className="cb-grid-2">
+          <div className="cb-card" style={{ padding: 16, textAlign: "center" }}>
+            <span className="cb-label">Title Score</span>
+            <p style={{ fontSize: 36, fontWeight: 800, color: sc(report.title_score || 0), margin: "6px 0 0" }}>{report.title_score || 0}</p>
+            <p style={{ fontSize: 11, color: "#52525b" }}>/100</p>
+          </div>
+          <div className="cb-card" style={{ padding: 16 }}>
+            <span className="cb-label">Problem</span>
+            <p style={{ fontSize: 13, color: "#f0f0f1", marginTop: 4 }}>{sv(report.title_problem)}</p>
+            <span className="cb-label" style={{ marginTop: 10, display: "block" }}>Fixed Title</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#4ade80", flex: 1 }}>{sv(report.title_fix)}</p>
+              <button onClick={() => { navigator.clipboard.writeText(sv(report.title_fix)); setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#4ade80", padding: 4, minHeight: 24, display: "flex", alignItems: "center" }}>{copied ? <Check size={14} /> : <Copy size={14} />}</button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }} className="cb-grid-2">
+          <div className="cb-card" style={{ padding: 16 }}>
+            <span className="cb-label">Thumbnail Problem</span>
+            <p style={{ fontSize: 13, color: "#f0f0f1", marginTop: 4 }}>{sv(report.thumbnail_problem)}</p>
+            <span className="cb-label" style={{ marginTop: 10, display: "block" }}>Fix</span>
+            <p style={{ fontSize: 13, color: "#a78bfa", marginTop: 4 }}>{sv(report.thumbnail_fix)}</p>
+          </div>
+          <div className="cb-card" style={{ padding: 16 }}>
+            <span className="cb-label">Hook Problem</span>
+            <p style={{ fontSize: 13, color: "#f0f0f1", marginTop: 4 }}>{sv(report.hook_problem)}</p>
+            <span className="cb-label" style={{ marginTop: 10, display: "block" }}>Algorithm Reason</span>
+            <p style={{ fontSize: 13, color: "#facc15", marginTop: 4 }}>{sv(report.algorithm_reason)}</p>
+          </div>
+        </div>
+
+        {report.revival_possible && <div className="cb-card" style={{ marginBottom: 16, borderLeft: "3px solid #4ade80", padding: 16 }}>
+          <span className="cb-label" style={{ color: "#4ade80" }}>Revival Is Possible</span>
+          <p style={{ fontSize: 13, color: "#f0f0f1", marginTop: 6 }}>{sv(report.revival_strategy)}</p>
+        </div>}
+
+        <div className="cb-card" style={{ padding: 16 }}>
+          <span className="cb-label" style={{ marginBottom: 10, display: "block" }}>Do This Right Now</span>
+          {(report.do_this_now || []).map((a: string, i: number) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 8 }}>
+              <span style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(250,204,21,0.15)", color: "#facc15", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</span>
+              <p style={{ fontSize: 13, color: "#f0f0f1" }}>{sv(a)}</p>
+            </div>
+          ))}
+        </div>
+
+      </div>}
+    </div>
   );
 }

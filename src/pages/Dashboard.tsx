@@ -1,310 +1,167 @@
-import { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, Eye, Clock, Flame, Zap, ArrowRight, AlertTriangle, BarChart2, Loader2, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useChannelData } from "@/hooks/useChannelData";
-import { calcChannelScore, timeAgo, type VideoData } from "@/lib/youtube-api";
-import { formatCount } from "@/lib/utils";
+import { AlertTriangle, ArrowRight, Clock, Lightbulb, Zap, ChevronRight, X } from "lucide-react";
 import { callAI } from "@/lib/ai-service";
-import VideoModal from "@/components/VideoModal";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useChannelData } from "@/hooks/useChannelData";
+import { formatCount } from "@/lib/utils";
 
-type TimeRange = "7d" | "30d" | "all";
-type SortMode = "recent" | "views" | "worst";
-
-function CustomTooltip({ active, payload }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg px-3 py-2 bg-zinc-900 border border-zinc-800 shadow-xl">
-      <p className="text-xs text-zinc-400 mb-1">{payload[0]?.payload?.fullTitle}</p>
-      <p className="text-sm font-bold text-white">{formatCount(payload[0]?.value)} views</p>
-      <p className="text-[10px] text-zinc-500 mt-1">{payload[0]?.payload?.date}</p>
-    </div>
-  );
-}
+const sv = (v: any): string => { if (v == null) return ""; if (typeof v === "string") return v; if (Array.isArray(v)) return v.map(String).join(", "); return String(v); };
+function extractJson(t: string): any { if (!t) return null; try { return JSON.parse(t); } catch {} const s = t.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim(); try { return JSON.parse(s); } catch {} const i = s.indexOf("{"), j = s.lastIndexOf("}"); if (i !== -1 && j !== -1) { try { return JSON.parse(s.slice(i, j + 1)); } catch {} } return null; }
+function fmt(n: number): string { if (!n) return "0"; if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"; if (n >= 1e3) return (n / 1e3).toFixed(1) + "K"; return String(n); }
+function useCountUp(target: number) { const [c, setC] = useState(0); useEffect(() => { if (!target) return; let cur = 0; const step = target / 60; const t = setInterval(() => { cur += step; if (cur >= target) { setC(target); clearInterval(t); } else setC(Math.floor(cur)); }, 16); return () => clearInterval(t); }, [target]); return c; }
+function dayName(t: string): string { if (!t) return "—"; const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]; for (const d of days) if (t.toLowerCase().includes(d.toLowerCase())) return d; return sv(t).split(/[—\-,.]/)[0].trim().slice(0, 12) || "—"; }
+function route(t: string): string { const v = t.toLowerCase(); if (v.includes("competitor")) return "/strategy/competitor-spy"; if (v.includes("title") || v.includes("thumbnail")) return "/create/title-tester"; if (v.includes("hook")) return "/create/hook-score"; if (v.includes("comment")) return "/grow/comment-intelligence"; return "/strategy/competitor-spy"; }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { channel, videos, avgViews, subscribers, isConnected } = useChannelData();
-  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
-  const [sortMode, setSortMode] = useState<SortMode>("recent");
-  const [actionPlan, setActionPlan] = useState<string[]>([]);
-  const [loadingPlan, setLoadingPlan] = useState(true);
-  const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
+  const { channel, videos, isConnected } = useChannelData();
+  const [brief, setBrief] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [selVid, setSelVid] = useState<any>(null);
+  const [sort, setSort] = useState<"worst" | "best" | "recent">("worst");
+  const ran = useRef(false);
 
-  useEffect(() => {
-    if (!isConnected || !channel || !videos.length) return;
-    
-    setLoadingPlan(true);
-    callAI(
-      "You are a YouTube growth strategist. Generate 3 specific numbered action items. Each item MUST contain a specific number or day from the channel's real data. Start with a verb. Be direct. Format: 1. Action\n2. Action\n3. Action",
-      `Channel: ${channel.name}. Avg Views: ${avgViews}. Best Day: ${channel.bestDay}. Recent performance: ${videos.slice(0, 5).map(v => v.views).join(", ")}. Last 30 uploads best day: ${channel.bestDay}.`
-    ).then(r => {
-      const items = r.split("\n").filter(l => /^\d\./.test(l.trim())).map(l => l.replace(/^\d\.\s*/, "").trim());
-      setActionPlan(items.slice(0, 3));
-    }).catch(() => {
-      setActionPlan([
-        `Post on ${channel.bestDay} at 3pm — it gets 2x your average based on recent data.`,
-        `Analyze why your top video got ${formatCount(videos[0]?.views || 0)} views and replicate the hook.`,
-        `Fix engagement on your latest upload which is currently performing below average.`
-      ]);
-    }).finally(() => setLoadingPlan(false));
-  }, [channel?.id]);
+  const avg = videos.length ? Math.round(videos.reduce((s, v) => s + (v.views || 0), 0) / videos.length) : 0;
+  const subs = useCountUp(channel?.subscribers || 0);
+  const avgAnim = useCountUp(avg);
 
-  const graphData = useMemo(() => {
-    if (!videos.length) return [];
-    const now = Date.now();
-    const daysLimit = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 3650;
-    
-    return videos
-      .filter(v => (now - new Date(v.publishedAt).getTime()) / 86400000 <= daysLimit)
-      .slice(0, 50)
-      .reverse()
-      .map(v => ({
-        views: Number(v.views), // Critical: Cast to Number
-        fullTitle: v.title,
-        label: v.title.slice(0, 20) + "...",
-        date: new Date(v.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      }));
-  }, [videos, timeRange]);
+  useEffect(() => { if (channel && videos.length > 0 && !ran.current) { ran.current = true; run(); } }, [channel, videos]);
 
-  const sortedVideos = useMemo(() => {
-    let v = [...videos];
-    if (sortMode === "views") v.sort((a, b) => b.views - a.views);
-    else if (sortMode === "worst") v.sort((a, b) => a.views - b.views);
-    return v.slice(0, 12);
-  }, [videos, sortMode]);
+  async function run() {
+    setLoading(true); setProgress(20);
+    const fail = [...videos].sort((a, b) => (a.views || 0) - (b.views || 0)).slice(0, 3);
+    const win = [...videos].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3);
+    const days: Record<string, number> = {};
+    videos.forEach(v => { if (!v.publishedAt) return; const d = new Date(v.publishedAt).toLocaleDateString("en-US", { weekday: "long" }); days[d] = (days[d] || 0) + 1; });
+    const bestDay = Object.entries(days).sort((a, b) => b[1] - a[1])[0]?.[0] || "Unknown";
+    setProgress(40);
+    const r = await callAI(
+      "Brutal YouTube strategist. Max 12 words per insight. Reference actual titles and numbers.",
+      `Analyse channel. Return ONLY raw JSON:\n{"biggest_problem":"max 15 words brutal truth","momentum":"growing"|"plateauing"|"declining","best_upload_day":"${bestDay}","best_upload_time":"time IST","hidden_opportunity":"specific topic max 12 words","this_week_action":"one action max 12 words","failing_video_reasons":["reason for video 1","reason for video 2","reason for video 3"]}\nChannel:${channel?.name} ${channel?.subscribers}subs ${avg}avg\nBest:${win.map(v => `"${v.title}"${v.views}v`).join("|")}\nWorst:${fail.map(v => `"${v.title}"${v.views}v`).join("|")}\nRecent:${videos.slice(0, 8).map(v => `"${v.title}"${v.views}v`).join("|")}`
+    );
+    setProgress(100); setBrief(extractJson(r)); setLoading(false);
+  }
 
   if (!isConnected) return null;
 
-  const channelScore = channel ? calcChannelScore(videos, channel.subscribers) : 0;
-  const latestVideo = videos[0];
-  const isUnderperforming = latestVideo && avgViews > 0 && latestVideo.views < avgViews * 0.7;
-  const underperformPercent = latestVideo ? Math.round((1 - (latestVideo.views / avgViews)) * 100) : 0;
-
-  const metrics = [
-    { label: "Avg Views", value: formatCount(avgViews), icon: Eye, color: "text-blue-400" },
-    { label: "Channel Score", value: `${channelScore}/100`, icon: TrendingUp, color: "text-yellow-400" },
-    { label: "Best Day", value: channel?.bestDay || "—", icon: Clock, color: "text-green-400" },
-    { label: "Frequency", value: channel?.uploadFrequency || "—", icon: Flame, color: "text-orange-400" },
-  ];
-
-  const lastAnalysed = channel?.fetchedAt ? timeAgo(channel.fetchedAt) : "Just now";
+  const fail = [...videos].sort((a, b) => (a.views || 0) - (b.views || 0)).slice(0, 3);
+  const sorted = [...videos].sort((a, b) => sort === "worst" ? (a.views || 0) - (b.views || 0) : sort === "best" ? (b.views || 0) - (a.views || 0) : new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+  const mc = brief?.momentum === "growing" ? "#4ade80" : brief?.momentum === "declining" ? "#f87171" : "#facc15";
 
   return (
-    <div className="p-6 md:p-8 max-w-[1200px] mx-auto space-y-8 pb-20">
-      
-      {/* ── Header ─────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <img src={channel?.avatar} alt="" className="h-14 w-14 rounded-full border-2 border-zinc-800 object-cover" />
+    <div className="cb-page" style={{ maxWidth: 960, margin: "0 auto" }}>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {channel?.avatar && <img src={channel.avatar} alt="" style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />}
           <div>
-            <h1 className="text-2xl font-bold font-display">{channel?.name}</h1>
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <span>{formatCount(subscribers)} subscribers</span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Last analysed: {lastAnalysed}
-              </span>
-            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f0f0f1", lineHeight: 1.2, margin: 0 }}>{channel?.name}</h1>
+            <p style={{ fontSize: 13, color: "#52525b", margin: 0 }}>{fmt(subs)} subscribers</p>
           </div>
         </div>
+        <button onClick={() => { localStorage.removeItem("cb_channel_data"); navigate("/"); }} style={{ fontSize: 12, color: "#3f3f46", background: "none", border: "none", cursor: "pointer", padding: "8px 12px", borderRadius: 8 }}>Disconnect</button>
       </div>
 
-      {/* ── Best Time Banner ───────────────── */}
-      <div className="bg-yellow-500 text-black px-6 py-4 rounded-2xl flex items-center justify-between shadow-lg shadow-yellow-500/10">
-        <div className="flex items-center gap-4">
-          <div className="bg-black/10 p-2 rounded-lg">
-            <Clock className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="font-bold text-lg">Post on {channel?.bestDay}s at 3pm — your highest performing upload day</p>
-            <p className="text-sm font-medium opacity-70">Based on your data</p>
-          </div>
+      {loading && <div style={{ textAlign: "center", padding: "48px 0" }}>
+        <p style={{ fontSize: 14, color: "#71717a", marginBottom: 12 }}>Analysing your channel...</p>
+        <div style={{ width: 200, height: 4, background: "#1c1c20", borderRadius: 4, margin: "0 auto" }}>
+          <div style={{ width: `${progress}%`, height: 4, background: "#facc15", borderRadius: 4, transition: "width 300ms" }} />
         </div>
-        <div className="hidden md:block bg-black text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
-          Recommended
+      </div>}
+
+      {brief && !loading && <div className="cb-card" style={{ marginBottom: 24, padding: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#52525b" }}>Channel Intelligence Brief</span>
+          <span style={{ fontSize: 12, fontWeight: 800, color: mc }}>{brief.momentum === "growing" ? "▲" : brief.momentum === "declining" ? "▼" : "→"} {sv(brief.momentum)}</span>
         </div>
-      </div>
+        <p style={{ fontSize: 18, fontWeight: 800, color: "#f0f0f1", marginBottom: 20, lineHeight: 1.4 }}>{sv(brief.biggest_problem)}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          {[{ label: "Post On", icon: <Clock size={14} />, value: dayName(sv(brief.best_upload_day)), sub: sv(brief.best_upload_time), color: "#facc15" }, { label: "Hidden Opportunity", icon: <Lightbulb size={14} />, value: sv(brief.hidden_opportunity), sub: "", color: "#a78bfa" }, { label: "This Week", icon: <Zap size={14} />, value: sv(brief.this_week_action), sub: "", color: "#4ade80" }].map(item => (
+            <div key={item.label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
+              <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525b", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>{item.icon}{item.label}</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: item.color, lineHeight: 1.4 }}>{item.value}</p>
+              {item.sub && <p style={{ fontSize: 11, color: "#52525b", marginTop: 2 }}>{item.sub}</p>}
+            </div>
+          ))}
+        </div>
+        <button onClick={() => navigate(route(sv(brief.this_week_action)))} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#facc15", color: "#000", fontWeight: 800, fontSize: 13, padding: "11px 20px", borderRadius: 10, border: "none", cursor: "pointer", marginTop: 16 }}>Do It Now <ArrowRight size={14} /></button>
+      </div>}
 
-      {/* ── Underperforming alert ───────────── */}
-      {isUnderperforming && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }} 
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 flex items-center justify-between group cursor-pointer"
-          onClick={() => navigate("/diagnose/video-death")}
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-red-500/20 p-2 rounded-xl text-red-500">
-              <AlertTriangle className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="font-bold text-red-500">"{latestVideo.title}" is {underperformPercent}% below your average</p>
-              <p className="text-sm text-red-500/70">Click to run an autopsy and fix it now</p>
-            </div>
-          </div>
-          <ArrowRight className="h-5 w-5 text-red-500 group-hover:translate-x-1 transition-transform" />
-        </motion.div>
-      )}
-
-      {/* ── Metrics Row ────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {metrics.map((m) => (
-          <div key={m.label} className="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl">
-            <div className="flex items-center gap-2 mb-3">
-              <m.icon className={`h-4 w-4 ${m.color}`} />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{m.label}</span>
-            </div>
-            <p className="text-2xl font-bold font-display">{m.value}</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }} className="cb-grid-4">
+        {[{ label: "Avg Views", value: fmt(avgAnim), color: "#60a5fa" }, { label: "Health", value: `${Math.min(100, Math.round(videos.filter(v => v.views > avg * 1.2).length / Math.max(videos.length, 1) * 100 + 40))}/100`, color: "#4ade80" }, { label: "Best Day", value: brief ? dayName(sv(brief.best_upload_day)) : "—", color: "#facc15" }, { label: "Videos", value: String(videos.length), color: "#a1a1aa" }].map(s => (
+          <div key={s.label} className="cb-card" style={{ padding: 14, textAlign: "center" }}>
+            <span className="cb-label">{s.label}</span>
+            <p style={{ fontSize: 22, fontWeight: 800, color: s.color, marginTop: 4 }}>{s.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* ── Views Graph ──────────────────── */}
-        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-lg font-bold font-display">Views Per Upload</h2>
-            <div className="flex bg-black/40 p-1 rounded-xl">
-              {(["7d", "30d", "all"] as TimeRange[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setTimeRange(r)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${timeRange === r ? "bg-zinc-800 text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
-                >
-                  {r}
-                </button>
-              ))}
+      {fail.length > 0 && <div style={{ marginBottom: 24 }}>
+        <p style={{ fontSize: 13, fontWeight: 800, color: "#f87171", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Videos That Are Failing</p>
+        <div style={{ display: "grid", gap: 8 }}>
+          {fail.map((v, i) => (
+            <div key={v.id} className="cb-card cb-card-hover" onClick={() => navigate("/diagnose/video-death")} style={{ padding: 14, borderLeft: "3px solid #f87171" }}>
+              <p style={{ fontSize: 12, fontWeight: 800, color: "#f87171" }}>{fmt(v.views)} views — {avg > 0 ? Math.round((v.views / avg) * 100) : 0}% of avg</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f1", marginTop: 2 }}>{v.title}</p>
+              {brief?.failing_video_reasons?.[i] && <p style={{ fontSize: 12, color: "#52525b", marginTop: 4 }}>{sv(brief.failing_video_reasons[i])}</p>}
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#f87171", marginTop: 6 }}>Fix This <ArrowRight size={10} style={{ display: "inline" }} /></p>
             </div>
-          </div>
-
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={graphData}>
-                <defs>
-                  <linearGradient id="viewGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" hide />
-                <YAxis hide domain={['auto', 'auto']} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="views"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#viewGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          ))}
         </div>
+      </div>}
 
-        {/* ── Action Plan ───────────────────── */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <Zap className="h-24 w-24 text-yellow-500" />
-          </div>
-          <h2 className="text-lg font-bold font-display mb-6 flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
-            This Week's Action Plan
-          </h2>
-
-          <div className="space-y-6">
-            {loadingPlan ? (
-              [1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full rounded-2xl bg-zinc-800" />)
-            ) : (
-              actionPlan.map((item, idx) => (
-                <div key={idx} className="flex gap-4 group">
-                  <div className="h-8 w-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 text-sm font-bold group-hover:bg-yellow-500 group-hover:text-black transition-colors">
-                    {idx + 1}
-                  </div>
-                  <p className="text-zinc-200 text-sm leading-relaxed pt-1">{item}</p>
-                </div>
-              ))
-            )}
-          </div>
-
-          <Button 
-            variant="outline" 
-            className="w-full mt-8 border-zinc-800 hover:bg-zinc-800 rounded-xl"
-            onClick={() => navigate("/coach")}
-          >
-            Discuss with Max
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Video Grid ────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold font-display">Recent Content</h2>
-          <div className="flex gap-2">
-            {(["recent", "views", "worst"] as SortMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setSortMode(m)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${sortMode === m ? "bg-white text-black border-white" : "bg-transparent text-zinc-500 border-zinc-800 hover:border-zinc-700"}`}
-              >
-                {m}
-              </button>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: "#f0f0f1" }}>Your Videos</span>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["worst", "best", "recent"] as const).map(m => (
+              <button key={m} onClick={() => setSort(m)} style={{ fontSize: 10, fontWeight: 700, padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", textTransform: "uppercase", background: sort === m ? "rgba(255,255,255,0.1)" : "transparent", color: sort === m ? "#f0f0f1" : "#3f3f46" }}>{m}</button>
             ))}
           </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {sortedVideos.map((v) => {
-            const performance = v.views / avgViews;
-            const isGood = performance > 1.3;
-            const isBad = performance < 0.7;
-            const badgeColor = isGood ? "bg-green-500" : isBad ? "bg-red-500" : "bg-yellow-500";
-            const percentLabel = isGood ? `+${Math.round((performance - 1) * 100)}%` : `${Math.round((performance - 1) * 100)}%`;
-
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }} className="cb-grid-3">
+          {sorted.slice(0, 9).map(v => {
+            const perf = v.views > avg * 1.2 ? "good" : v.views < avg * 0.7 ? "bad" : "ok";
+            const pl = perf === "good" ? `${((v.views / avg) * 100 - 100).toFixed(0)}% above avg` : perf === "bad" ? `${(100 - (v.views / avg) * 100).toFixed(0)}% below avg` : "Near average";
+            const bc = perf === "good" ? "#4ade80" : perf === "bad" ? "#f87171" : "#facc15";
             return (
-              <motion.div
-                key={v.id}
-                whileHover={{ y: -5 }}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer group"
-                onClick={() => setSelectedVideo(v)}
-              >
-                <div className="aspect-video relative overflow-hidden">
-                  <img src={v.thumbnail} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
-                  <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-0.5 rounded text-[10px] font-bold">
-                    {v.duration.replace("PT", "").replace("M", ":").replace("S", "").padStart(4, "0")}
-                  </div>
-                  <div className={`absolute top-2 left-2 ${badgeColor} text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg`}>
-                    {percentLabel}
-                  </div>
+              <div key={v.id} className="cb-card cb-card-hover" onClick={() => setSelVid(v)} style={{ padding: 0, overflow: "hidden", borderLeft: `3px solid ${bc}` }}>
+                <div style={{ position: "relative" }}>
+                  <img src={v.thumbnail} alt="" style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }} />
+                  <span style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.8)", color: "#fff", fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>{fmt(v.views)}</span>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-sm line-clamp-2 mb-2 group-hover:text-yellow-500 transition-colors">{v.title}</h3>
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                    <span>{formatCount(v.views)} views</span>
-                    <span>{timeAgo(v.publishedAt)}</span>
-                  </div>
+                <div style={{ padding: 10 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#f0f0f1", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: bc, marginTop: 4 }}>{pl}</p>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {selectedVideo && (
-        <VideoModal
-          video={selectedVideo}
-          isOpen={!!selectedVideo}
-          onClose={() => setSelectedVideo(null)}
-          avgViews={avgViews}
-        />
-      )}
+      {selVid && <div onClick={() => setSelVid(null)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: "#111114", borderRadius: 16, width: "100%", maxWidth: 420, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: 16, gap: 8 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f1", lineHeight: 1.3 }}>{selVid.title}</h3>
+            <button onClick={() => setSelVid(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#52525b", padding: 4, minHeight: 24, fontSize: 18 }}>✕</button>
+          </div>
+          <img src={selVid.thumbnail} alt="" style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover" }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, padding: 16 }}>
+            {[{ l: "Views", v: fmt(selVid.views), c: "#60a5fa" }, { l: "Likes", v: fmt(selVid.likes || 0), c: "#4ade80" }, { l: "Comments", v: fmt(selVid.comments || 0), c: "#a78bfa" }].map(s => (
+              <div key={s.l} style={{ textAlign: "center" }}>
+                <span className="cb-label">{s.l}</span>
+                <p style={{ fontSize: 18, fontWeight: 800, color: s.c }}>{s.v}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: "0 16px 16px" }}>
+            <button onClick={() => { setSelVid(null); navigate("/diagnose/video-death"); }} style={{ background: "#f87171", color: "#000", fontWeight: 800, fontSize: 13, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer" }}>Diagnose This</button>
+            <button onClick={() => setSelVid(null)} style={{ background: "rgba(255,255,255,0.06)", color: "#f0f0f1", fontWeight: 700, fontSize: 13, padding: "11px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>Close</button>
+          </div>
+        </div>
+      </div>}
     </div>
   );
 }

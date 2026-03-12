@@ -498,6 +498,9 @@ export async function getChannelVideos(channelId: string, maxResults: number = 5
   }));
 }
 
+// Re-export formatCount from utils for backwards compatibility
+export { formatCount } from "@/lib/utils";
+
 export function getVideoComments(videoId: string, maxResults: number = 100): string[] {
   const data = getMyChannel();
   const comments = data.comments[videoId] || [];
