@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import AppLayout from "./components/AppLayout";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 // Diagnose
 import VideoDeath from "./pages/diagnose/VideoDeath";
