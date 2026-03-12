@@ -233,6 +233,10 @@ export default function Landing() {
           )}
         </AnimatePresence>
       </div>
+      <div style={{ position: "absolute", bottom: 20, left: 0, right: 0, textAlign: "center", zIndex: 10 }}>
+        <a href="/privacy" style={{ fontSize: 12, color: "#3f3f46", marginRight: 16, textDecoration: "none" }}>Privacy Policy</a>
+        <a href="/terms" style={{ fontSize: 12, color: "#3f3f46", textDecoration: "none" }}>Terms of Service</a>
+      </div>
     </div>
   );
 }
