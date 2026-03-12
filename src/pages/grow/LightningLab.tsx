@@ -104,7 +104,7 @@ export default function LightningLab() {
         </div>
       )}
 
-      <VideoModal video={selectedVideo} avgViews={avgViews} onClose={() => setSelectedVideo(null)} />
+      <VideoModal video={selectedVideo} isOpen={!!selectedVideo} avgViews={avgViews} onClose={() => setSelectedVideo(null)} />
     </FeaturePage>
   );
 }

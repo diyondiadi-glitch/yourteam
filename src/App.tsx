@@ -149,6 +149,9 @@ const App = () => (
           {/* COACH */}
           <Route path="/coach" element={withLayout(<AICoach />)} />
 
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
