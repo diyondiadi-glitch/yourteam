@@ -506,7 +506,3 @@ export function getVideoComments(videoId: string, maxResults: number = 100): str
   const comments = data.comments[videoId] || [];
   return comments.slice(0, maxResults).map(c => c.text);
 }
-  const data = getMyChannel();
-  const comments = data.comments[videoId] || [];
-  return comments.slice(0, maxResults).map(c => c.text);
-}
