@@ -1,214 +1,196 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import FeaturePage from "@/components/FeaturePage";
-import { useChannelData } from "@/hooks/useChannelData";
-import { callAI, safeJsonParse } from "@/lib/ai-service";
-import { Loader2, MessageSquare, Lightbulb, HelpCircle, AlertCircle, Smile } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { MessageSquare, RefreshCw, Lightbulb, Copy, Check } from "lucide-react";
+import { callAI } from "@/lib/ai-service";
 
-interface CommentAnalysis {
-  mood: { word: string; explanation: string };
-  nextVideo: { title: string; hook: string; why: string };
-  topRequests: { idea: string; count: number; evidence: string }[];
-  unansweredQuestions: string[];
-  complaints: { issue: string; fix: string }[];
-}
+const YT_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
+const sv = (v: any): string => { if (v == null) return ""; if (typeof v === "string") return v; if (Array.isArray(v)) return v.map(String).join(", "); return String(v); };
+function extractJson(t: string): any { if (!t) return null; try { return JSON.parse(t); } catch {} const s = t.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim(); try { return JSON.parse(s); } catch {} const i = s.indexOf("{"), j = s.lastIndexOf("}"); if (i !== -1 && j !== -1) { try { return JSON.parse(s.slice(i, j + 1)); } catch {} } return null; }
+function fmt(n: number): string { if (!n) return "0"; if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"; if (n >= 1e3) return (n / 1e3).toFixed(1) + "K"; return String(n); }
 
 export default function CommentIntelligence() {
-  const { channel, comments, isConnected } = useChannelData();
-  const [loading, setLoading] = useState(true);
-  const [analysis, setAnalysis] = useState<CommentAnalysis | null>(null);
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [report, setReport] = useState<any>(null);
+  const [error, setError] = useState("");
+  const [topVids, setTopVids] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isConnected || !comments) return;
-    runAnalysis();
-  }, [isConnected, comments]);
+    const s = localStorage.getItem("cb_channel_data");
+    if (!s) { navigate("/"); return; }
+    const d = JSON.parse(s);
+    const sorted = [...(d.videos || [])].sort((a: any, b: any) => (b.views || 0) - (a.views || 0));
+    const top = sorted.slice(0, 3);
+    setTopVids(top);
+    run(top, d);
+  }, []);
 
-  async function runAnalysis() {
-    setLoading(true);
-    try {
-      // Flatten comments from most recent 5 videos, limited to 60
-      const allComments = Object.values(comments).flat().slice(0, 60);
-      const channelName = channel?.name || "the creator";
-
-      const result = await callAI(
-        `You are analyzing YouTube comments. Return ONLY valid JSON, zero markdown, zero explanation. 
-Format: {"mood":"Hyped|Loyal|Curious|Mixed|Disappointed","mood_reason":"one sentence","next_video":{"title":"string","hook":"string","why":"string"},"top_requests":[{"idea":"string","count":2,"example":"string"}],"audience_insight":"one sentence"}`,
-        `Analyze these ${allComments.length} YouTube comments from channel "${channelName}": ${allComments.map(c => c.text || c.textDisplay || c).join(" | ")}`,
-        { maxTokens: 800, temperature: 0.5 }
-      );
-
-      const parsed = parseJsonSafely(result);
-      
-      // Map JSON keys to existing state structure
-      const mappedResult = parsed ? {
-        mood: { word: parsed.mood, explanation: parsed.mood_reason },
-        nextVideo: parsed.next_video,
-        topRequests: parsed.top_requests.map((r: any) => ({
-          idea: r.idea,
-          count: r.count,
-          evidence: r.example
-        })),
-        unansweredQuestions: [parsed.audience_insight],
-        complaints: [] // Simplified structure
-      } : null;
-
-      setAnalysis(mappedResult as any);
-    } catch (e) {
-      // Fallback
-      setAnalysis({
-        mood: { word: "Loyal", explanation: "Your audience is highly engaged and consistently asks for more deep-dives into your process." },
-        nextVideo: { title: "My Full Workflow Revealed", hook: "You've been asking how I manage everything — today I'm showing you the exact system.", why: "Based on 12 comments asking 'what software do you use?'" },
-        topRequests: [
-          { idea: "Setup Tour", count: 8, evidence: "Can we see your desk setup?" },
-          { idea: "Q&A Special", count: 5, evidence: "When is the next Q&A?" }
-        ],
-        unansweredQuestions: [
-          "How long does it take to edit one video?",
-          "What camera are you using for the b-roll?",
-          "Are you going to VidSummit this year?"
-        ],
-        complaints: [
-          { issue: "Music is too loud", fix: "Lower background track by 3dB in the next edit." },
-          { issue: "Upload schedule", fix: "Acknowledge the delay and commit to a consistent day." }
-        ]
-      });
-    } finally {
-      setLoading(false);
+  async function run(vids: any[], ch: any) {
+    setLoading(true); setProgress(5); setReport(null); setError("");
+    const all: string[] = [];
+    for (let i = 0; i < vids.length; i++) {
+      try {
+        const r = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${vids[i].id}&maxResults=40&order=relevance&key=${YT_KEY}`);
+        const d = await r.json();
+        const c = (d.items || []).map((x: any) => x.snippet.topLevelComment.snippet.textDisplay);
+        all.push(...c);
+      } catch {}
+      setProgress(10 + (i + 1) * 18);
     }
+    setTotal(all.length);
+    if (!all.length) { setError("No comments found. Comments may be disabled on these videos."); setLoading(false); return; }
+    setProgress(65);
+    const r = await callAI(
+      "Expert YouTube audience analyst. Return ONLY raw JSON starting with {. No markdown.",
+      `Analyse ${all.length} comments from ${ch.name}. Return:\n{"overall_sentiment":"positive"|"neutral"|"negative","sentiment_score":0-100,"audience_type":"exactly who they are - age interests why they watch","top_requests":[{"request":"specific ask","frequency":"~X comments","video_idea":"exact title"},{"request":"r2","frequency":"x","video_idea":"t2"},{"request":"r3","frequency":"x","video_idea":"t3"}],"pain_points":[{"pain":"specific frustration","opportunity":"how to address"},{"pain":"p2","opportunity":"o2"},{"pain":"p3","opportunity":"o3"}],"video_ideas":[{"title":"specific title from comments","why":"why high views"},{"title":"t2","why":"w2"},{"title":"t3","why":"w3"},{"title":"t4","why":"w4"}],"best_comments_to_reply":[{"comment":"exact comment","why":"why reply helps","reply_suggestion":"suggested reply"},{"comment":"c2","why":"w2","reply_suggestion":"r2"},{"comment":"c3","why":"w3","reply_suggestion":"r3"}],"audience_vocabulary":["w1","w2","w3","w4","w5","w6"],"hidden_insight":"one surprising thing creator doesnt know"}\nComments:${all.slice(0, 120).join(" ||| ")}`
+    );
+    setProgress(100);
+    const p = extractJson(r);
+    if (!p) { setError("Analysis failed. Try again."); setLoading(false); return; }
+    setReport(p); setLoading(false);
   }
 
-  if (!isConnected) return null;
+  function copy(t: string, k: string) { navigator.clipboard.writeText(t); setCopied(k); setTimeout(() => setCopied(null), 1500); }
+  const sentimentColor = !report ? "#60a5fa" : (report.sentiment_score ?? 50) >= 70 ? "#4ade80" : (report.sentiment_score ?? 50) >= 40 ? "#facc15" : "#f87171";
 
   return (
-    <FeaturePage 
-      emoji="🧠" 
-      title="Comment Intelligence" 
-      description="Advisor report based on your last 100 comments. No manual trigger needed."
-    >
-      <AnimatePresence mode="wait">
-        {loading ? (
-          <motion.div 
-            key="loading"
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center py-20"
-          >
-            <Loader2 className="h-12 w-12 text-yellow-500 animate-spin mb-4" />
-            <p className="text-zinc-400 font-medium">Analyzing audience sentiment...</p>
-          </motion.div>
-        ) : analysis ? (
-          <motion.div
-            key="result"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-8 pb-20"
-          >
-            {/* Audience Mood */}
-            <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl flex flex-col md:flex-row items-center gap-8">
-              <div className="text-center md:text-left">
-                <p className="text-xs text-zinc-500 font-black uppercase tracking-widest mb-2">Audience Mood</p>
-                <h2 className="text-5xl font-bold font-display text-yellow-500 mb-2">{analysis.mood.word}</h2>
-                <p className="text-zinc-300">{analysis.mood.explanation}</p>
-              </div>
-              <div className="h-20 w-px bg-zinc-800 hidden md:block" />
-              <div className="flex-1 text-center md:text-left">
-                <p className="text-xs text-zinc-500 font-black uppercase tracking-widest mb-2">Quick Verdict</p>
-                <p className="text-lg text-zinc-200 font-medium">Your audience is primed for {analysis.mood.word === 'Hyped' ? 'a big announcement' : 'more educational content'}.</p>
-              </div>
-            </div>
+    <div className="cb-page" style={{ maxWidth: 800, margin: "0 auto" }}>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Make This Video Next */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 opacity-5">
-                  <Lightbulb className="h-32 w-32 text-yellow-500" />
-                </div>
-                <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5 text-yellow-500" />
-                  Make This Video Next
-                </h3>
-                <div className="space-y-6">
-                  <div>
-                    <p className="text-xs text-zinc-500 font-bold uppercase mb-2">Suggested Title</p>
-                    <p className="text-xl font-bold text-white">{analysis.nextVideo.title}</p>
+      <div style={{ marginBottom: 20 }}>
+        <p className="cb-label" style={{ marginBottom: 4 }}>Grow / Comment Intelligence</p>
+        <h1 style={{ fontSize: 24, fontWeight: 800, color: "#f0f0f1", margin: 0 }}>Comment Intelligence</h1>
+        <p style={{ fontSize: 13, color: "#52525b", marginTop: 4 }}>Auto-analysing what your audience is really saying</p>
+      </div>
+
+      {topVids.length > 0 && <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <MessageSquare size={14} style={{ color: "#60a5fa" }} />
+        <p style={{ fontSize: 13, color: "#71717a", flex: 1 }}>{loading ? "Fetching comments..." : <>{total} comments analysed from your top {topVids.length} videos</>}</p>
+        <button onClick={() => { const s = localStorage.getItem("cb_channel_data"); if (s) run(topVids, JSON.parse(s)); }} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 7, minHeight: 32 }}><RefreshCw size={12} />Refresh</button>
+      </div>}
+
+      {topVids.length > 0 && <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto" }}>
+        {topVids.map((v: any) => <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "6px 10px", flexShrink: 0 }}>
+          <img src={v.thumbnail} alt="" style={{ width: 32, height: 20, borderRadius: 4, objectFit: "cover" }} />
+          <span style={{ fontSize: 11, color: "#a1a1aa", maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.title}</span>
+        </div>)}
+      </div>}
+
+      {loading && <div style={{ textAlign: "center", padding: "40px 0" }}>
+        <p style={{ fontSize: 14, color: "#71717a", marginBottom: 10 }}>Mining comment section...</p>
+        <div style={{ width: 180, height: 4, background: "#1c1c20", borderRadius: 4, margin: "0 auto" }}>
+          <div style={{ width: `${progress}%`, height: 4, background: "#60a5fa", borderRadius: 4, transition: "width 300ms" }} />
+        </div>
+      </div>}
+
+      {error && !loading && <div className="cb-card" style={{ textAlign: "center", padding: 20, borderColor: "rgba(248,113,113,0.2)" }}>
+        <p style={{ fontSize: 13, color: "#f87171", marginBottom: 10 }}>{error}</p>
+        <button onClick={() => { const s = localStorage.getItem("cb_channel_data"); if (s) run(topVids, JSON.parse(s)); }} style={{ fontSize: 12, fontWeight: 700, color: "#f0f0f1", background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", padding: "8px 14px", borderRadius: 8 }}>Try Again</button>
+      </div>}
+
+      {report && !loading && <div className="cb-fade">
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }} className="cb-grid-2">
+          <div className="cb-card" style={{ padding: 16, textAlign: "center" }}>
+            <span className="cb-label">Sentiment</span>
+            <p style={{ fontSize: 36, fontWeight: 800, color: sentimentColor, margin: "6px 0 0" }}>{report.sentiment_score}</p>
+            <p style={{ fontSize: 12, color: "#52525b" }}>{sv(report.overall_sentiment)}</p>
+          </div>
+          <div className="cb-card" style={{ padding: 16 }}>
+            <span className="cb-label">Who Your Audience Is</span>
+            <p style={{ fontSize: 13, color: "#f0f0f1", marginTop: 6, lineHeight: 1.5 }}>{sv(report.audience_type)}</p>
+          </div>
+        </div>
+
+        {report.hidden_insight && <div className="cb-card" style={{ marginBottom: 16, borderLeft: "3px solid #facc15", padding: 16 }}>
+          <span className="cb-label" style={{ color: "#facc15" }}>Hidden Insight</span>
+          <p style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f1", marginTop: 6 }}>{sv(report.hidden_insight)}</p>
+        </div>}
+
+        {(report.top_requests || []).length > 0 && <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: "#f0f0f1", marginBottom: 10 }}>What They Keep Requesting</p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(report.top_requests || []).map((item: any, i: number) => (
+              <div key={i} className="cb-card" style={{ padding: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#f0f0f1" }}>{sv(item.request)}</p>
+                  <p style={{ fontSize: 11, color: "#52525b", marginTop: 2 }}>{sv(item.frequency)}</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                    <Lightbulb size={10} style={{ color: "#facc15" }} />
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#facc15" }}>{sv(item.video_idea)}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-zinc-500 font-bold uppercase mb-2">Opening Hook</p>
-                    <p className="text-sm text-zinc-300 italic bg-black/40 p-4 rounded-xl border border-zinc-800">
-                      "{analysis.nextVideo.hook}"
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-zinc-500 font-bold uppercase mb-2">Why it will work</p>
-                    <p className="text-sm text-zinc-400">{analysis.nextVideo.why}</p>
-                  </div>
+                </div>
+                <button onClick={() => copy(sv(item.video_idea), `r${i}`)} style={{ background: "rgba(255,255,255,0.06)", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 7, color: copied === `r${i}` ? "#4ade80" : "#a1a1aa", fontSize: 11, fontWeight: 700, minHeight: 32, display: "flex", alignItems: "center", gap: 4 }}>
+                  {copied === `r${i}` ? <><Check size={10} />Copied</> : <><Copy size={10} />Copy</>}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>}
+
+        {(report.video_ideas || []).length > 0 && <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: "#f0f0f1", marginBottom: 10 }}>Video Ideas From Comments</p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(report.video_ideas || []).map((idea: any, i: number) => (
+              <div key={i} className="cb-card" style={{ padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#f0f0f1" }}>{sv(idea.title)}</p>
+                  <button onClick={() => copy(sv(idea.title), `i${i}`)} style={{ background: "none", border: "none", cursor: "pointer", color: "#52525b", padding: 4, flexShrink: 0, display: "flex", alignItems: "center", minHeight: 24 }}>
+                    {copied === `i${i}` ? <Check size={12} style={{ color: "#4ade80" }} /> : <Copy size={12} />}
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: "#52525b", marginTop: 4 }}>{sv(idea.why)}</p>
+              </div>
+            ))}
+          </div>
+        </div>}
+
+        {(report.pain_points || []).length > 0 && <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: "#f0f0f1", marginBottom: 10 }}>Audience Pain Points</p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(report.pain_points || []).map((item: any, i: number) => (
+              <div key={i} className="cb-card" style={{ padding: 14 }}>
+                <p className="cb-label" style={{ color: "#f87171" }}>The Pain</p>
+                <p style={{ fontSize: 13, color: "#f0f0f1", marginTop: 4 }}>{sv(item.pain)}</p>
+                <p className="cb-label" style={{ color: "#4ade80", marginTop: 10 }}>The Opportunity</p>
+                <p style={{ fontSize: 13, color: "#f0f0f1", marginTop: 4 }}>{sv(item.opportunity)}</p>
+              </div>
+            ))}
+          </div>
+        </div>}
+
+        {(report.best_comments_to_reply || []).length > 0 && <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: "#f0f0f1", marginBottom: 10 }}>Comments You Should Reply To</p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(report.best_comments_to_reply || []).map((item: any, i: number) => (
+              <div key={i} className="cb-card" style={{ padding: 14 }}>
+                <p style={{ fontSize: 13, color: "#a1a1aa", fontStyle: "italic", marginBottom: 4 }}>"{sv(item.comment)}"</p>
+                <p style={{ fontSize: 12, color: "#52525b", marginBottom: 8 }}>{sv(item.why)}</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(167,139,250,0.06)", borderRadius: 8, padding: "8px 10px" }}>
+                  <p style={{ fontSize: 12, color: "#a78bfa", flex: 1 }}>{sv(item.reply_suggestion)}</p>
+                  <button onClick={() => copy(sv(item.reply_suggestion), `rp${i}`)} style={{ background: "none", border: "none", cursor: "pointer", color: "#a78bfa", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, minHeight: 24, padding: "0 4px" }}>
+                    {copied === `rp${i}` ? <><Check size={10} />Copied</> : <><Copy size={10} />Copy</>}
+                  </button>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>}
 
-              {/* Top 5 Video Requests */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-blue-400" />
-                  Top Video Requests
-                </h3>
-                <div className="space-y-4">
-                  {analysis.topRequests.map((req, i) => (
-                    <div key={i} className="flex items-start gap-4 p-4 bg-black/20 rounded-2xl border border-zinc-800/50">
-                      <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0 font-bold text-xs">
-                        {req.count}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-white mb-1">{req.idea}</p>
-                        <p className="text-[11px] text-zinc-500 italic line-clamp-1">"{req.evidence}"</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+        {(report.audience_vocabulary || []).length > 0 && <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: "#f0f0f1", marginBottom: 10 }}>Words Your Audience Uses — Put These in Your Titles</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {(report.audience_vocabulary || []).map((w: string, i: number) => (
+              <button key={i} onClick={() => copy(sv(w), `v${i}`)} style={{ fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20, cursor: "pointer", background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.15)", color: "#facc15" }}>
+                {sv(w)} {copied === `v${i}` ? "✓" : ""}
+              </button>
+            ))}
+          </div>
+        </div>}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Unanswered Questions */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
-                  <HelpCircle className="h-5 w-5 text-green-400" />
-                  Unanswered Questions
-                </h3>
-                <ul className="space-y-4">
-                  {analysis.unansweredQuestions.map((q, i) => (
-                    <li key={i} className="flex gap-3 text-sm text-zinc-300">
-                      <span className="text-green-400 font-bold">•</span>
-                      {q}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Complaints to Fix */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
-                <h3 className="text-xl font-bold font-display mb-6 flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-500" />
-                  2 Complaints to Fix
-                </h3>
-                <div className="space-y-6">
-                  {analysis.complaints.slice(0, 2).map((c, i) => (
-                    <div key={i} className="space-y-2">
-                      <p className="text-sm font-bold text-white flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                        {c.issue}
-                      </p>
-                      <p className="text-xs text-zinc-400 bg-red-500/5 border border-red-500/10 p-3 rounded-xl italic">
-                        Action: {c.fix}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </FeaturePage>
+      </div>}
+    </div>
   );
 }
