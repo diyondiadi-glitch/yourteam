@@ -107,19 +107,44 @@ export default function VideoModal({ video, isOpen, onClose, avgViews }: VideoMo
               )}
             </div>
 
-            {/* Stats Row */}
+{/* Stats Row */}
             <div className="grid grid-cols-4 gap-2">
               {[
-                { label: "Views", value: formatCount(video.views), icon: Eye },
-                { label: "Likes", value: formatCount(video.likes), icon: ThumbsUp },
-                { label: "Comments", value: formatCount(video.comments), icon: MessageSquare },
-                { label: "Like Rate", value: `${likeRate}%`, icon: Sparkles },
+                { label: "Views", value: formatCount(video.views) },
+                { label: "Likes", value: formatCount(video.likes) },
+                { label: "Comments", value: formatCount(video.comments) },
+                { label: "Like Rate", value: `${((video.likes / Math.max(video.views, 1)) * 100).toFixed(1)}%` },
               ].map((s) => (
-                <div key={s.label} className="text-center">
+                <div key={s.label} className="text-center p-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
                   <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">{s.label}</p>
                   <p className="text-sm font-bold">{s.value}</p>
                 </div>
               ))}
+            </div>
+
+            {/* Quick Actions — 5 buttons */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[
+                { label: "🔬 Autopsy", route: "/diagnose/video-death" },
+                { label: "✂️ Find Shorts", route: "/grow/hidden-gold" },
+                { label: "⛏ Mine Comments", route: "/coach/comment-intel" },
+                { label: "⚡ Make Part 2", route: "/create/video-machine" },
+                { label: "🎣 Score Hook", route: "/create/hook-analyser" },
+              ].map((a) => (
+                <button
+                  key={a.label}
+                  onClick={() => {
+                    sessionStorage.setItem("selected_video", JSON.stringify(video));
+                    onClose();
+                    navigate(a.route);
+                  }}
+                  className="text-xs font-bold py-2 px-1 rounded-xl transition-colors"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#f1f0ef" }}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
             </div>
 
             {/* Quick Actions */}

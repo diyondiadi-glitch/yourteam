@@ -168,34 +168,57 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
         </div>
       )}
 
-      {/* Bar chart — always visible when video selected */}
-      {sel && avg > 0 && maxV > 0 && (
-        <div className="cb-card" style={{ padding: 20, marginBottom: 16 }}>
-          <span className="cb-label" style={{ marginBottom: 16, display: "block" }}>Performance vs Channel</span>
-          <div style={{ display: "flex", gap: 20, alignItems: "flex-end", height: 120 }}>
-            {[
-              { label: "This Video", views: sel.views, color: sel.views < avg * 0.7 ? "#f87171" : sel.views > avg * 1.2 ? "#4ade80" : "#facc15" },
-              { label: "Channel Avg", views: avg, color: "#60a5fa" },
-              { label: "Best Video", views: maxV, color: "#4ade80" },
-            ].map(bar => (
-              <div key={bar.label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, height: "100%" }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: bar.color }}>{fmt(bar.views)}</p>
-                <div style={{ flex: 1, width: "100%", background: "rgba(255,255,255,0.04)", borderRadius: 8, display: "flex", alignItems: "flex-end" }}>
-                  <div style={{
-                    width: "100%",
-                    height: `${Math.max(6, Math.round((bar.views / maxV) * 100))}%`,
-                    background: bar.color,
-                    borderRadius: 8,
-                    opacity: 0.8,
-                    transition: "height 700ms ease"
-                  }} />
-                </div>
-                <span className="cb-label">{bar.label}</span>
-              </div>
-            ))}
+{/* VidIQ-style area chart */}
+      {sel && avg > 0 && maxV > 0 && (() => {
+        const thisColor = sel.views < avg * 0.7 ? "#f87171" : sel.views > avg * 1.2 ? "#4ade80" : "#facc15";
+        const points = [
+          { x: 0, v: sel.views, label: "This Video", color: thisColor },
+          { x: 1, v: avg, label: "Avg", color: "#60a5fa" },
+          { x: 2, v: maxV, label: "Best", color: "#4ade80" },
+        ];
+        const W = 320, H = 110, pad = 24;
+        const xStep = (W - pad * 2) / 2;
+        const toY = (v: number) => pad + (1 - v / maxV) * (H - pad * 2);
+        const coords = points.map((p, i) => ({ x: pad + i * xStep, y: toY(p.v), ...p }));
+        // smooth SVG path through all 3 points
+        const pathD = coords.map((c, i) => {
+          if (i === 0) return `M ${c.x} ${c.y}`;
+          const prev = coords[i - 1];
+          const cx = (prev.x + c.x) / 2;
+          return `C ${cx} ${prev.y}, ${cx} ${c.y}, ${c.x} ${c.y}`;
+        }).join(" ");
+        const areaD = pathD + ` L ${coords[coords.length - 1].x} ${H} L ${coords[0].x} ${H} Z`;
+        return (
+          <div className="cb-card" style={{ padding: 20, marginBottom: 16 }}>
+            <span className="cb-label" style={{ marginBottom: 16, display: "block" }}>Performance vs Channel</span>
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 120, overflow: "visible" }}>
+              <defs>
+                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={thisColor} stopOpacity="0.18" />
+                  <stop offset="100%" stopColor={thisColor} stopOpacity="0.01" />
+                </linearGradient>
+              </defs>
+              {/* horizontal grid lines */}
+              {[0.25, 0.5, 0.75, 1].map(t => {
+                const y = pad + (1 - t) * (H - pad * 2);
+                return <line key={t} x1={pad} x2={W - pad} y1={y} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />;
+              })}
+              {/* area fill */}
+              <path d={areaD} fill="url(#areaGrad)" />
+              {/* line */}
+              <path d={pathD} fill="none" stroke={thisColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              {/* dots + labels */}
+              {coords.map((c) => (
+                <g key={c.label}>
+                  <circle cx={c.x} cy={c.y} r="5" fill={c.color} stroke="#080809" strokeWidth="2" />
+                  <text x={c.x} y={c.y - 10} textAnchor="middle" fill={c.color} fontSize="11" fontWeight="700">{fmt(c.v)}</text>
+                  <text x={c.x} y={H - 4} textAnchor="middle" fill="#52525b" fontSize="9" fontWeight="600" letterSpacing="0.06em" style={{ textTransform: "uppercase" }}>{c.label}</text>
+                </g>
+              ))}
+            </svg>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Loading */}
       {loading && (

@@ -29,21 +29,85 @@ const fade = {
 async function fetchCompetitorChannel(input: string) {
   const YT_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
   let channelId = "";
+  let handle = "";
 
-  // Extract channel ID from URL
-  if (input.includes("youtube.com/channel/")) {
-    channelId = input.split("youtube.com/channel/")[1].split(/[/?&]/)[0];
+  const trimmed = input.trim();
+
+  if (trimmed.includes("youtube.com/channel/")) {
+    channelId = trimmed.split("youtube.com/channel/")[1].split(/[/?&]/)[0];
+  } else if (trimmed.includes("@")) {
+    handle = trimmed.split("@")[1].split("/")[0].split("?")[0];
+  } else if (trimmed.startsWith("UC") && trimmed.length === 24) {
+    channelId = trimmed;
   } else {
-    // Search by handle or name
-    const handle = input.replace("https://","").replace("http://","")
-      .replace("www.youtube.com/","").replace("@","").split("/")[0].split("?")[0];
-    const searchRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(handle)}&type=channel&maxResults=1&key=${YT_KEY}`
+    handle = trimmed.replace("https://", "").replace("http://", "")
+      .replace("www.youtube.com/", "").replace("youtube.com/", "")
+      .replace(/^\//, "").split("/")[0].split("?")[0];
+  }
+
+  let chanData: any = null;
+
+  if (handle) {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&forHandle=${handle}&key=${YT_KEY}`
     );
+    const d = await res.json();
+    if (d.error) throw new Error(`YouTube API error: ${d.error.message}`);
+    chanData = d.items?.[0];
+  }
+
+  if (!chanData && channelId) {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&id=${channelId}&key=${YT_KEY}`
+    );
+    const d = await res.json();
+    if (d.error) throw new Error(`YouTube API error: ${d.error.message}`);
+    chanData = d.items?.[0];
+  }
+
+  if (!chanData) throw new Error(`Channel not found for "${input}". Try pasting the full YouTube URL like youtube.com/@channelname`);
+
+  channelId = chanData.id;
+  const uploadsId = chanData.contentDetails?.relatedPlaylists?.uploads;
+
+  let videoIds: string[] = [];
+  if (uploadsId) {
+    const vRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${uploadsId}&maxResults=20&key=${YT_KEY}`
+    );
+    const vData = await vRes.json();
+    videoIds = (vData.items || []).map((i: any) => i.contentDetails.videoId).filter(Boolean);
+  }
+
+  let videos: any[] = [];
+  if (videoIds.length) {
+    const sRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds.join(",")}&key=${YT_KEY}`
+    );
+    const sData = await sRes.json();
+    videos = (sData.items || []).map((v: any) => ({
+      id: v.id,
+      title: v.snippet.title,
+      thumbnail: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
+      views: parseInt(v.statistics?.viewCount || "0"),
+      likes: parseInt(v.statistics?.likeCount || "0"),
+      publishedAt: v.snippet.publishedAt,
+    })).sort((a: any, b: any) => b.views - a.views);
+  }
+
+  return {
+    id: channelId,
+    name: chanData.snippet.title,
+    avatar: chanData.snippet.thumbnails?.medium?.url,
+    subscribers: parseInt(chanData.statistics?.subscriberCount || "0"),
+    totalViews: parseInt(chanData.statistics?.viewCount || "0"),
+    videos,
+  };
+}
     const searchData = await searchRes.json();
     if (!searchData.items?.length) throw new Error(`No channel found for "${input}". Try pasting the full YouTube URL.`);
     channelId = searchData.items[0].snippet.channelId;
-  }
+
 
   // Get channel details
   const chanRes = await fetch(
