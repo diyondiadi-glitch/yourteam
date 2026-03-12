@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Clock, Lightbulb, Zap, ChevronRight, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, Lightbulb, Zap } from "lucide-react";
 import { callAI } from "@/lib/ai-service";
 import { useChannelData } from "@/hooks/useChannelData";
 import { formatCount } from "@/lib/utils";
+import VideoModal from "@/components/VideoModal";
 
 const sv = (v: any): string => { if (v == null) return ""; if (typeof v === "string") return v; if (Array.isArray(v)) return v.map(String).join(", "); return String(v); };
 function extractJson(t: string): any { if (!t) return null; try { return JSON.parse(t); } catch {} const s = t.replace(/```(?:json)?\s*/g, "").replace(/```/g, "").trim(); try { return JSON.parse(s); } catch {} const i = s.indexOf("{"), j = s.lastIndexOf("}"); if (i !== -1 && j !== -1) { try { return JSON.parse(s.slice(i, j + 1)); } catch {} } return null; }
@@ -130,48 +131,46 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }} className="cb-grid-3">
+        <div className="cb-grid-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {sorted.slice(0, 9).map(v => {
             const perf = v.views > avg * 1.2 ? "good" : v.views < avg * 0.7 ? "bad" : "ok";
             const pl = perf === "good" ? `${((v.views / avg) * 100 - 100).toFixed(0)}% above avg` : perf === "bad" ? `${(100 - (v.views / avg) * 100).toFixed(0)}% below avg` : "Near average";
             const bc = perf === "good" ? "#4ade80" : perf === "bad" ? "#f87171" : "#facc15";
             return (
-              <div key={v.id} className="cb-card cb-card-hover" onClick={() => setSelVid(v)} style={{ padding: 0, overflow: "hidden", borderLeft: `3px solid ${bc}` }}>
-                <div style={{ position: "relative" }}>
-                  <img src={v.thumbnail} alt="" style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }} />
-                  <span style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.8)", color: "#fff", fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>{fmt(v.views)}</span>
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setSelVid(v)}
+                className="group text-left rounded-2xl border border-white/5 bg-[#0A0A0A] overflow-hidden shadow-[0_0_20px_rgba(255,255,255,0.03)] hover:shadow-[0_0_30px_rgba(255,255,255,0.06)] transition-transform duration-200 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-violet-500/60"
+              >
+                <div className="relative aspect-video overflow-hidden">
+                  <img
+                    src={v.thumbnail}
+                    alt=""
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                  />
+                  <span className="absolute top-2 right-2 rounded-full bg-black/80 px-2 py-0.5 text-[10px] font-semibold text-zinc-100">
+                    {fmt(v.views)}
+                  </span>
                 </div>
-                <div style={{ padding: 10 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#f0f0f1", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</p>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: bc, marginTop: 4 }}>{pl}</p>
+                <div className="px-3.5 py-3">
+                  <p className="text-[12px] font-semibold text-zinc-100 leading-snug line-clamp-2">
+                    {v.title}
+                  </p>
+                  <p
+                    className="mt-2 text-[10px] font-semibold"
+                    style={{ color: bc }}
+                  >
+                    {pl}
+                  </p>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {selVid && <div onClick={() => setSelVid(null)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-        <div onClick={e => e.stopPropagation()} style={{ background: "#111114", borderRadius: 16, width: "100%", maxWidth: 420, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: 16, gap: 8 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#f0f0f1", lineHeight: 1.3 }}>{selVid.title}</h3>
-            <button onClick={() => setSelVid(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#52525b", padding: 4, minHeight: 24, fontSize: 18 }}>✕</button>
-          </div>
-          <img src={selVid.thumbnail} alt="" style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover" }} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, padding: 16 }}>
-            {[{ l: "Views", v: fmt(selVid.views), c: "#60a5fa" }, { l: "Likes", v: fmt(selVid.likes || 0), c: "#4ade80" }, { l: "Comments", v: fmt(selVid.comments || 0), c: "#a78bfa" }].map(s => (
-              <div key={s.l} style={{ textAlign: "center" }}>
-                <span className="cb-label">{s.l}</span>
-                <p style={{ fontSize: 18, fontWeight: 800, color: s.c }}>{s.v}</p>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, padding: "0 16px 16px" }}>
-            <button onClick={() => { setSelVid(null); navigate("/diagnose/video-death"); }} style={{ background: "#f87171", color: "#000", fontWeight: 800, fontSize: 13, padding: "11px", borderRadius: 9, border: "none", cursor: "pointer" }}>Diagnose This</button>
-            <button onClick={() => setSelVid(null)} style={{ background: "rgba(255,255,255,0.06)", color: "#f0f0f1", fontWeight: 700, fontSize: 13, padding: "11px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>Close</button>
-          </div>
-        </div>
-      </div>}
+      <VideoModal video={selVid} isOpen={!!selVid} onClose={() => setSelVid(null)} avgViews={avg} />
     </div>
   );
 }

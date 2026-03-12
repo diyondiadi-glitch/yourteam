@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Eye, Target, Crosshair, ArrowRight, BarChart3, Swords,
@@ -10,8 +10,26 @@ import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { useChannelData } from "@/hooks/useChannelData";
 import { formatCount } from "@/lib/utils";
-import { callAI, parseJsonSafely } from "@/lib/ai-service";
+import { callAI } from "@/lib/ai-service";
 import { friendlyError } from "@/lib/errors";
+import { fetchCompleteChannelData } from "@/lib/youtube-api";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const s = (v: any): string => {
   if (v === null || v === undefined) return "";
@@ -26,130 +44,42 @@ const fade = {
   show: { opacity: 1, y: 0 },
 };
 
-async function fetchCompetitorChannel(input: string) {
-  const YT_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
-  let channelId = "";
-  let handle = "";
+type Metric = "views" | "subscribers" | "videos";
+type Timeframe = "30d" | "60d" | "12m";
+type ViewType = "total" | "cumulative" | "daily";
 
-  const trimmed = input.trim();
-
-  if (trimmed.includes("youtube.com/channel/")) {
-    channelId = trimmed.split("youtube.com/channel/")[1].split(/[/?&]/)[0];
-  } else if (trimmed.includes("@")) {
-    handle = trimmed.split("@")[1].split("/")[0].split("?")[0];
-  } else if (trimmed.startsWith("UC") && trimmed.length === 24) {
-    channelId = trimmed;
-  } else {
-    handle = trimmed.replace("https://", "").replace("http://", "")
-      .replace("www.youtube.com/", "").replace("youtube.com/", "")
-      .replace(/^\//, "").split("/")[0].split("?")[0];
+function classifyCompetitorError(err: any) {
+  const msg = (err?.message || "").toString();
+  if (msg.includes("Channel not found")) {
+    return {
+      title: "Channel Not Found",
+      message: "We couldn't find a YouTube channel for that handle or URL.",
+      hint: "Try pasting the full URL from YouTube, like youtube.com/@channelname.",
+    };
   }
-
-  let chanData: any = null;
-
-  if (handle) {
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&forHandle=${handle}&key=${YT_KEY}`
-    );
-    const d = await res.json();
-    if (d.error) throw new Error(`YouTube API error: ${d.error.message}`);
-    chanData = d.items?.[0];
+  if (msg.includes("YouTube API keys exhausted") || msg.includes("quota")) {
+    return {
+      title: "YouTube API Rate Limit",
+      message: "YouTube is temporarily refusing more requests from our API keys.",
+      hint: "Wait a few minutes and try again, or test with a different competitor.",
+    };
   }
-
-  if (!chanData && channelId) {
-    const res = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&id=${channelId}&key=${YT_KEY}`
-    );
-    const d = await res.json();
-    if (d.error) throw new Error(`YouTube API error: ${d.error.message}`);
-    chanData = d.items?.[0];
-  }
-
-  if (!chanData) throw new Error(`Channel not found for "${input}". Try pasting the full YouTube URL like youtube.com/@channelname`);
-
-  channelId = chanData.id;
-  const uploadsId = chanData.contentDetails?.relatedPlaylists?.uploads;
-
-  let videoIds: string[] = [];
-  if (uploadsId) {
-    const vRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${uploadsId}&maxResults=20&key=${YT_KEY}`
-    );
-    const vData = await vRes.json();
-    videoIds = (vData.items || []).map((i: any) => i.contentDetails.videoId).filter(Boolean);
-  }
-
-  let videos: any[] = [];
-  if (videoIds.length) {
-    const sRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds.join(",")}&key=${YT_KEY}`
-    );
-    const sData = await sRes.json();
-    videos = (sData.items || []).map((v: any) => ({
-      id: v.id,
-      title: v.snippet.title,
-      thumbnail: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
-      views: parseInt(v.statistics?.viewCount || "0"),
-      likes: parseInt(v.statistics?.likeCount || "0"),
-      publishedAt: v.snippet.publishedAt,
-    })).sort((a: any, b: any) => b.views - a.views);
-  }
-
   return {
-    id: channelId,
-    name: chanData.snippet.title,
-    avatar: chanData.snippet.thumbnails?.medium?.url,
-    subscribers: parseInt(chanData.statistics?.subscriberCount || "0"),
-    totalViews: parseInt(chanData.statistics?.viewCount || "0"),
-    videos,
+    title: "Unexpected Diagnosis Error",
+    message: "Something blocked the competitor scan before it could complete.",
+    hint: "Check that the channel is public and exists, then try again.",
   };
 }
-    const searchData = await searchRes.json();
-    if (!searchData.items?.length) throw new Error(`No channel found for "${input}". Try pasting the full YouTube URL.`);
-    channelId = searchData.items[0].snippet.channelId;
 
-
-  // Get channel details
-  const chanRes = await fetch(
-    `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${YT_KEY}`
-  );
-  const chanData = await chanRes.json();
-  if (!chanData.items?.length) throw new Error("Could not load channel data. Try again.");
-  const chan = chanData.items[0];
-
-  // Get their videos
-  const vidRes = await fetch(
-    `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=20&order=viewCount&type=video&key=${YT_KEY}`
-  );
-  const vidData = await vidRes.json();
-  const videoIds = (vidData.items||[]).map((v:any)=>v.id.videoId).filter(Boolean).join(",");
-
-  // Get video stats
-  let videos: any[] = [];
-  if (videoIds) {
-    const statsRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds}&key=${YT_KEY}`
-    );
-    const statsData = await statsRes.json();
-    videos = (statsData.items||[]).map((v:any)=>(
-      {
-        id: v.id,
-        title: v.snippet.title,
-        thumbnail: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
-        views: parseInt(v.statistics.viewCount||"0"),
-        likes: parseInt(v.statistics.likeCount||"0"),
-        publishedAt: v.snippet.publishedAt,
-      }
-    ));
-  }
-
+async function fetchCompetitorChannel(input: string) {
+  const data = await fetchCompleteChannelData(input);
   return {
-    id: channelId,
-    name: chan.snippet.title,
-    avatar: chan.snippet.thumbnails?.medium?.url,
-    subscribers: parseInt(chan.statistics.subscriberCount||"0"),
-    totalViews: parseInt(chan.statistics.viewCount||"0"),
-    videos,
+    id: data.id,
+    name: data.name,
+    avatar: data.avatar,
+    subscribers: data.subscribers,
+    totalViews: data.totalViews,
+    videos: data.videos || [],
   };
 }
 
@@ -166,6 +96,13 @@ export default function CompetitorSpy() {
   const [report, setReport] = useState<any>(null);
   const [copied, setCopied] = useState(false);
   const [myChannel, setMyChannel] = useState<any>(channel);
+  const [metric, setMetric] = useState<Metric>("views");
+  const [timeframe, setTimeframe] = useState<Timeframe>("30d");
+  const [viewType, setViewType] = useState<ViewType>("cumulative");
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diagTitle, setDiagTitle] = useState("");
+  const [diagMessage, setDiagMessage] = useState("");
+  const [diagHint, setDiagHint] = useState("");
 
   if (!isConnected) return null;
 
@@ -178,10 +115,12 @@ export default function CompetitorSpy() {
     setCompVideos([]);
 
     try {
-      const stored = localStorage.getItem("yt_channel_data");
-      if (!stored) { navigate("/"); return; }
-      const myData = JSON.parse(stored);
-      const myVids = myData.videos?.slice(0, 8) || [];
+      if (!channel) {
+        navigate("/");
+        return;
+      }
+      const myData = channel;
+      const myVids = videos.slice(0, 8);
       setMyChannel(myData);
 
       setLoadMsg("🔍 Finding competitor channel...");
@@ -221,33 +160,112 @@ ${myContext} ${compContext}`
       if (!p1 && !p2) { setError("Analysis failed to parse — please try again."); setLoading(false); return; }
       setReport({ ...(p1 || {}), ...(p2 || {}) });
     } catch (err: any) {
+      const diag = classifyCompetitorError(err);
+      setDiagTitle(diag.title);
+      setDiagMessage(diag.message);
+      setDiagHint(diag.hint);
+      setDiagOpen(true);
       setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
   }
 
+  const compareData = useMemo(() => {
+    if (!myChannel || !competitor) return [];
+
+    const now = new Date();
+    const daysBack = timeframe === "30d" ? 30 : timeframe === "60d" ? 60 : 365;
+    const cutoff = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+
+    const buildSeries = (vids: any[], subs: number) => {
+      const byDay: Record<string, number> = {};
+      vids.forEach((v) => {
+        if (!v.publishedAt) return;
+        const d = new Date(v.publishedAt);
+        if (d < cutoff) return;
+        const key = d.toISOString().slice(0, 10);
+        if (!byDay[key]) byDay[key] = 0;
+        if (metric === "views") byDay[key] += v.views || 0;
+        if (metric === "videos") byDay[key] += 1;
+        if (metric === "subscribers") byDay[key] = subs;
+      });
+      const days = Object.keys(byDay).sort();
+      let running = 0;
+      return days.map((key) => {
+        const base = byDay[key];
+        running += base;
+        const value =
+          viewType === "daily" ? base :
+          viewType === "total" ? base :
+          running;
+        return { key, value };
+      });
+    };
+
+    const mine = buildSeries(videos, myChannel.subscribers || myChannel.subscriberCount || 0);
+    const theirs = buildSeries(compVideos, competitor.subscribers || competitor.subscriberCount || 0);
+
+    const allKeys = Array.from(new Set([...mine.map(d => d.key), ...theirs.map(d => d.key)])).sort();
+
+    return allKeys.map((key) => {
+      const m = mine.find(d => d.key === key);
+      const t = theirs.find(d => d.key === key);
+      const dateLabel = new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return {
+        date: dateLabel,
+        mine: m?.value ?? null,
+        them: t?.value ?? null,
+      };
+    });
+  }, [myChannel, competitor, videos, compVideos, metric, timeframe, viewType]);
+
+  const metricLabel = metric === "views" ? "Views" : metric === "videos" ? "Videos" : "Subscribers";
+
   return (
-    <div className="p-6 md:p-8 max-w-[960px] mx-auto">
+    <div className="p-6 md:p-8 max-w-[1100px] mx-auto bg-[#050505] min-h-screen text-zinc-100">
+      <Dialog open={diagOpen} onOpenChange={setDiagOpen}>
+        <DialogContent className="bg-[#050505] border border-red-500/40 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-400 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> {diagTitle}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-zinc-300">
+              {diagMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-xs text-zinc-500 mt-2">{diagHint}</p>
+          <Button
+            className="mt-4 w-full rounded-xl bg-red-500/10 text-red-300 border border-red-500/40 hover:bg-red-500/20"
+            variant="outline"
+            onClick={() => setDiagOpen(false)}
+          >
+            Close and Try Again
+          </Button>
+        </DialogContent>
+      </Dialog>
+
       {/* HEADER */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
-          <div className="h-14 w-14 rounded-2xl flex items-center justify-center" style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.2)" }}>
-            <Crosshair className="h-7 w-7" style={{ color: "#a78bfa" }} />
+          <div className="h-14 w-14 rounded-2xl flex items-center justify-center bg-violet-500/10 border border-violet-400/30">
+            <Crosshair className="h-7 w-7 text-violet-300" />
           </div>
           <div>
-            <h1 className="t-page">Intelligence Report</h1>
-            <p className="text-muted-foreground">12-dimension competitive battle analysis</p>
+            <h1 className="t-page bg-gradient-to-r from-zinc-100 via-zinc-300 to-zinc-100 bg-clip-text text-transparent tracking-[0.22em] uppercase text-xs mb-1">
+              Competitor Spy
+            </h1>
+            <p className="text-sm text-zinc-400">Luxury-grade competitive intelligence on your niche.</p>
           </div>
         </div>
       </div>
 
       {/* INPUT COMMAND CENTER */}
-      <div className="rounded-2xl p-8 mb-8" style={{ background: "radial-gradient(ellipse at top, #0d0511 0%, var(--cb-card) 60%)", border: "1px solid rgba(167,139,250,0.15)" }}>
+      <div className="rounded-2xl p-8 mb-8 border border-white/5 bg-gradient-to-b from-violet-950/40 via-[#0A0A0A] to-[#050505] shadow-[0_0_40px_rgba(124,58,237,0.40)]">
         <div className="max-w-lg mx-auto text-center">
-          <p className="t-label mb-4" style={{ color: "#a78bfa" }}>🕵️ SPY MODE ACTIVE</p>
-          <h2 className="t-section text-foreground mb-2">Enter Competitor Channel</h2>
-          <p className="text-sm text-muted-foreground mb-6">Channel name, @handle, or full YouTube URL. We&apos;ll run a full intel sweep.</p>
+          <p className="t-label mb-3 text-violet-300 tracking-[0.2em] uppercase text-[11px]">🕵️ Spy Mode Active</p>
+          <h2 className="text-xl font-semibold text-zinc-50 mb-2">Enter Competitor Channel</h2>
+          <p className="text-sm text-zinc-400 mb-6">Channel name, @handle, or full YouTube URL. We&apos;ll run a full intel sweep.</p>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Input
@@ -255,29 +273,39 @@ ${myContext} ${compContext}`
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !loading && analyze()}
               placeholder="@technoblade, MrBeast, or paste any YouTube URL"
-              className="h-13 rounded-xl text-base"
+              className="h-13 rounded-xl text-base bg-black/40 border-violet-400/40 text-zinc-100 placeholder:text-zinc-600"
               inputMode="url"
               autoComplete="off"
-              style={{ background: "rgba(0,0,0,0.4)", borderColor: "rgba(167,139,250,0.3)", height: "52px" }}
             />
-            <Button onClick={analyze} disabled={loading || !query.trim()} className="h-[52px] px-6 rounded-xl font-bold shrink-0" style={{ background: "linear-gradient(135deg, #7c3aed, #a78bfa)" }}>
+            <Button
+              onClick={analyze}
+              disabled={loading || !query.trim()}
+              className="h-[52px] px-6 rounded-xl font-bold shrink-0 bg-gradient-to-r from-violet-500 to-fuchsia-400 text-black hover:from-violet-400 hover:to-fuchsia-300"
+            >
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Run Intel <ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
           </div>
           {loading && (
-            <p className="text-sm text-muted-foreground mt-4 animate-pulse">{loadMsg}</p>
+            <p className="text-sm text-zinc-400 mt-4 animate-pulse">{loadMsg}</p>
           )}
         </div>
       </div>
 
       {/* ERROR STATE */}
       {error && (
-        <div className="cb-card cb-card-problem mb-8">
-          <AlertCircle className="h-6 w-6 text-destructive mb-3" />
+        <div className="mb-8 rounded-2xl border border-red-500/30 bg-red-500/5 px-4 py-3 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
           <div>
-            <p className="font-semibold text-foreground">Analysis failed</p>
-            <p className="text-sm text-muted-foreground mt-1">{error}</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={analyze}>Try Again</Button>
+            <p className="text-sm font-semibold text-zinc-100">Competitor scan failed</p>
+            <p className="text-xs text-zinc-400 mt-1">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 rounded-xl border-red-500/40 text-red-200 hover:bg-red-500/10"
+              onClick={analyze}
+            >
+              Try Again
+            </Button>
           </div>
         </div>
       )}
@@ -285,6 +313,139 @@ ${myContext} ${compContext}`
       {/* RESULTS */}
       {report && competitor && (
         <div className="space-y-8">
+          {/* COMPARE PERFORMANCE GRAPH */}
+          {compareData.length > 0 && (
+            <motion.div
+              variants={fade}
+              initial="hidden"
+              animate="show"
+              className="rounded-2xl border border-white/5 bg-[#0A0A0A] p-6 shadow-[0_0_40px_rgba(0,0,0,0.7)]"
+            >
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                <div>
+                  <p className="t-label text-[11px] tracking-[0.2em] uppercase text-zinc-500 mb-1">
+                    Compare Performance
+                  </p>
+                  <p className="text-sm text-zinc-300">
+                    {metricLabel} over time · You vs {competitor.name}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-1 py-1">
+                    {(["views", "subscribers", "videos"] as Metric[]).map(m => (
+                      <button
+                        key={m}
+                        onClick={() => setMetric(m)}
+                        className={`px-3 py-1 text-xs rounded-full transition-all ${
+                          metric === m
+                            ? "bg-zinc-100 text-black shadow-[0_0_18px_rgba(255,255,255,0.25)]"
+                            : "text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        {m === "views" ? "Views" : m === "subscribers" ? "Subs" : "Videos"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-1 py-1">
+                    {(["30d", "60d", "12m"] as Timeframe[]).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setTimeframe(t)}
+                        className={`px-3 py-1 text-xs rounded-full transition-all ${
+                          timeframe === t
+                            ? "bg-zinc-100 text-black shadow-[0_0_18px_rgba(255,255,255,0.25)]"
+                            : "text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        {t === "30d" ? "30 Days" : t === "60d" ? "60 Days" : "12 Months"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-1 py-1">
+                    {(["total", "cumulative", "daily"] as ViewType[]).map(v => (
+                      <button
+                        key={v}
+                        onClick={() => setViewType(v)}
+                        className={`px-3 py-1 text-xs rounded-full transition-all ${
+                          viewType === v
+                            ? "bg-zinc-100 text-black shadow-[0_0_18px_rgba(255,255,255,0.25)]"
+                            : "text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        {v.charAt(0).toUpperCase() + v.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={compareData} margin={{ left: -20, right: 0, top: 10, bottom: 0 }}>
+                    <CartesianGrid stroke="rgba(148,163,184,0.18)" strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tick={{ fill: "#71717a", fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v: number) => formatCount(v || 0)}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || payload.length === 0) return null;
+                        return (
+                          <div className="backdrop-blur-md bg-black/80 border border-white/10 rounded-2xl px-4 py-3 shadow-[0_0_30px_rgba(0,0,0,0.8)]">
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500 mb-2">
+                              {label}
+                            </p>
+                            {payload.map((p: any) => (
+                              <div key={p.dataKey} className="flex items-center justify-between gap-3 text-xs mb-1 last:mb-0">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: p.color }}
+                                  />
+                                  <span className="text-zinc-300">
+                                    {p.dataKey === "mine" ? (myChannel?.name || "You") : (competitor?.name || "Them")}
+                                  </span>
+                                </div>
+                                <span className="font-semibold text-zinc-100">
+                                  {formatCount(p.value || 0)} {metricLabel.toLowerCase()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ paddingTop: 8 }}
+                      formatter={(value: string) =>
+                        value === "mine" ? (myChannel?.name || "You") : (competitor?.name || "Them")
+                      }
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="mine"
+                      stroke="#a855f7"
+                      strokeWidth={2.2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                      name="You"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="them"
+                      stroke="#38bdf8"
+                      strokeWidth={2.2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                      name={competitor?.name || "Them"}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+          )}
           {/* BATTLE VERDICT */}
           <motion.div variants={fade} initial="hidden" animate="show" className="cb-card cb-card-verdict relative overflow-hidden">
             <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(circle at center, #facc15, transparent 70%)" }} />

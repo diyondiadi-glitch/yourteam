@@ -1,7 +1,9 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, RefreshCw, Copy, Check } from "lucide-react";
+import { ChevronDown, RefreshCw, Copy, Check, AlertTriangle } from "lucide-react";
 import { callAI } from "@/lib/ai-service";
+import { getMyChannel } from "@/lib/youtube-api";
+import { getSelectedVideo, clearSelectedVideo } from "@/lib/video-context";
 
 const sv = (v: any): string => {
   if (v == null) return "";
@@ -44,21 +46,40 @@ export default function VideoDeath() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const s = localStorage.getItem("yt_channel_data");
-    if (!s) { navigate("/"); return; }
-    const d = JSON.parse(s);
-    setChannel(d);
-    const vids: any[] = d.videos || [];
-    setVideos(vids);
-    if (vids.length > 0) {
-      const a = Math.round(vids.reduce((s: number, v: any) => s + (v.views || 0), 0) / vids.length);
+    try {
+      const ch = getMyChannel();
+      setChannel(ch);
+      const vids: any[] = ch.videos || [];
+      setVideos(vids);
+      if (!vids.length) return;
+
+      const a = Math.round(
+        vids.reduce((sum: number, v: any) => sum + (v.views || 0), 0) / vids.length,
+      );
       const mx = Math.max(...vids.map((v: any) => v.views || 0));
       setAvg(a);
       setMaxV(mx);
-      const worst = [...vids].sort((a, b) => (a.views || 0) - (b.views || 0))[0];
-      setSel(worst);
-      runDiag(worst, d, a);
+
+      const storedSel = getSelectedVideo();
+      let initial: any | null = null;
+
+      if (storedSel) {
+        initial = vids.find(v => v.id === storedSel.id) || null;
+      }
+
+      if (!initial) {
+        initial = [...vids].sort((a, b) => (a.views || 0) - (b.views || 0))[0];
+      }
+
+      setSel(initial);
+      clearSelectedVideo();
+      if (initial && a > 0) {
+        runDiag(initial, ch, a);
+      }
+    } catch {
+      navigate("/");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runDiag(video: any, ch: any, a: number) {
@@ -115,52 +136,82 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
   const sortedVids = [...videos].sort((a, b) => (a.views || 0) - (b.views || 0));
 
   return (
-    <div className="cb-page cb-fade">
-      <div style={{ marginBottom: 20 }}>
-        <span className="cb-label" style={{ marginBottom: 6 }}>Diagnose / Video Autopsy</span>
-        <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 4 }}>
+    <div className="cb-page cb-fade min-h-screen bg-[#050505] text-zinc-100">
+      <div className="mb-6">
+        <span className="cb-label mb-2 block text-[11px] tracking-[0.22em] uppercase text-zinc-500">
+          Diagnose / Video Autopsy
+        </span>
+        <h1 className="text-xl font-semibold tracking-tight">
           Why Did My Video Die?
         </h1>
-        <p style={{ fontSize: 13, color: "#71717a" }}>Auto-analysing your worst performing video</p>
+        <p className="mt-1 text-xs text-zinc-500">
+          Auto-analysing your weakest video and turning it into a playbook.
+        </p>
       </div>
 
       {/* Video picker */}
       {sel && (
-        <div style={{ marginBottom: 16 }}>
-          <div className="cb-card" style={{ padding: 12, display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}
-            onClick={() => setOpen(!open)}>
-            <img src={sel.thumbnail} alt="" style={{ height: 44, width: 78, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sel.title}</p>
-              <p style={{ fontSize: 11, color: "#52525b", marginTop: 2 }}>
-                {fmt(sel.views)} views — {avg > 0 ? Math.round((sel.views / avg) * 100) : 0}% of avg
+        <div className="mb-4">
+          <div
+            className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/5 bg-[#0A0A0A] px-3 py-2"
+            onClick={() => setOpen(!open)}
+          >
+            <img
+              src={sel.thumbnail}
+              alt=""
+              className="h-11 w-[78px] flex-shrink-0 rounded-lg object-cover"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-[13px] font-semibold">{sel.title}</p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                {fmt(sel.views)} views · {avg > 0 ? Math.round((sel.views / avg) * 100) : 0}% of avg
               </p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="flex items-center gap-2">
               <button
-                onClick={e => { e.stopPropagation(); if (channel && avg > 0) runDiag(sel, channel, avg); }}
-                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#60a5fa", background: "rgba(96,165,250,0.1)", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 7, minHeight: 32 }}>
+                onClick={e => {
+                  e.stopPropagation();
+                  if (channel && avg > 0) runDiag(sel, channel, avg);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-300"
+              >
                 <RefreshCw size={11} /> Re-analyse
               </button>
-              <ChevronDown size={14} color="#52525b" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 150ms" }} />
+              <ChevronDown
+                size={14}
+                className={`text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`}
+              />
             </div>
           </div>
 
           {open && (
-            <div className="cb-card" style={{ marginTop: 4, maxHeight: 300, overflowY: "auto", padding: 8 }}>
+            <div className="mt-2 max-h-72 overflow-y-auto rounded-2xl border border-white/5 bg-[#0A0A0A] p-2">
               {sortedVids.map(v => {
-                const dot = v.views < avg * 0.5 ? "#f87171" : v.views < avg * 0.8 ? "#facc15" : "#4ade80";
+                const dot =
+                  v.views < avg * 0.5 ? "#f87171" : v.views < avg * 0.8 ? "#facc15" : "#4ade80";
                 return (
-                  <div key={v.id}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 8, cursor: "pointer", background: sel?.id === v.id ? "rgba(255,255,255,0.05)" : "transparent" }}
-                    onClick={() => pick(v)}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: dot, flexShrink: 0 }} />
-                    <img src={v.thumbnail} alt="" style={{ height: 34, width: 60, objectFit: "cover", borderRadius: 5, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.title}</p>
-                      <p style={{ fontSize: 10, color: "#52525b" }}>{fmt(v.views)} views</p>
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => pick(v)}
+                    className={`flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left hover:bg-white/5 ${
+                      sel?.id === v.id ? "bg-white/5" : ""
+                    }`}
+                  >
+                    <span
+                      className="h-2 w-2 flex-shrink-0 rounded-full"
+                      style={{ background: dot }}
+                    />
+                    <img
+                      src={v.thumbnail}
+                      alt=""
+                      className="h-9 w-[60px] flex-shrink-0 rounded-md object-cover"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-[12px] font-semibold">{v.title}</p>
+                      <p className="text-[10px] text-zinc-500">{fmt(v.views)} views</p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -189,9 +240,14 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
         }).join(" ");
         const areaD = pathD + ` L ${coords[coords.length - 1].x} ${H} L ${coords[0].x} ${H} Z`;
         return (
-          <div className="cb-card" style={{ padding: 20, marginBottom: 16 }}>
-            <span className="cb-label" style={{ marginBottom: 16, display: "block" }}>Performance vs Channel</span>
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 120, overflow: "visible" }}>
+          <div className="mb-4 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="cb-label block text-[11px] tracking-[0.18em] uppercase text-zinc-500">
+                Performance vs Channel
+              </span>
+              <span className="text-[11px] text-zinc-400">This · Avg · Best</span>
+            </div>
+            <svg viewBox={`0 0 ${W} ${H}`} className="h-28 w-full overflow-visible">
               <defs>
                 <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={thisColor} stopOpacity="0.18" />
@@ -201,7 +257,17 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
               {/* horizontal grid lines */}
               {[0.25, 0.5, 0.75, 1].map(t => {
                 const y = pad + (1 - t) * (H - pad * 2);
-                return <line key={t} x1={pad} x2={W - pad} y1={y} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />;
+                return (
+                  <line
+                    key={t}
+                    x1={pad}
+                    x2={W - pad}
+                    y1={y}
+                    y2={y}
+                    stroke="rgba(63,63,70,0.8)"
+                    strokeWidth="1"
+                  />
+                );
               })}
               {/* area fill */}
               <path d={areaD} fill="url(#areaGrad)" />
@@ -222,95 +288,198 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
 
       {/* Loading */}
       {loading && (
-        <div className="cb-card" style={{ padding: 24, marginBottom: 16 }}>
-          <span className="cb-label" style={{ color: "#facc15", marginBottom: 12, display: "block" }}>
-            Performing autopsy on "{sel?.title?.slice(0, 40)}..."
+        <div className="mb-4 rounded-2xl border border-amber-400/40 bg-[#0A0A0A] p-4">
+          <span className="cb-label mb-2 block text-amber-300">
+            Performing autopsy on &quot;{sel?.title?.slice(0, 40)}&quot;...
           </span>
-          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, height: 6, overflow: "hidden" }}>
-            <div style={{ height: "100%", background: "#facc15", width: `${progress}%`, borderRadius: 8, transition: "width 400ms" }} />
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full bg-amber-400 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
       )}
 
       {/* Error */}
       {error && !loading && (
-        <div className="cb-card" style={{ padding: 20, borderLeft: "3px solid #f87171", marginBottom: 16 }}>
-          <p style={{ color: "#f87171", fontWeight: 600, marginBottom: 8 }}>{error}</p>
-          <button onClick={() => { if (sel && channel && avg > 0) runDiag(sel, channel, avg); }}
-            style={{ fontSize: 12, fontWeight: 700, color: "#f0f0f1", background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", padding: "8px 14px", borderRadius: 8 }}>
-            Try Again
-          </button>
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-rose-300" />
+          <div>
+            <p className="text-sm font-semibold text-zinc-100">{error}</p>
+            <button
+              onClick={() => {
+                if (sel && channel && avg > 0) runDiag(sel, channel, avg);
+              }}
+              className="mt-3 inline-flex items-center rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-1.5 text-[11px] font-semibold text-zinc-100"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       )}
 
       {/* Report */}
       {report && !loading && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="space-y-4">
+          {/* Critical failure + gauge */}
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-950/60 via-[#0A0A0A] to-[#050505] p-4 shadow-[0_0_40px_rgba(248,113,113,0.35)]">
+              <p className="cb-label mb-2 flex items-center gap-1.5 text-[11px] tracking-[0.18em] uppercase text-rose-300">
+                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-rose-400" /> Critical Failure
+              </p>
+              <p className="text-sm font-semibold leading-relaxed">
+                {sv(report.verdict)}
+              </p>
+              {report.failure_type && (
+                <span className="mt-3 inline-block rounded-full border border-rose-400/50 bg-rose-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-rose-200">
+                  {sv(report.failure_type).replace(/_/g, " ")}
+                </span>
+              )}
+            </div>
 
-          <div className="cb-card" style={{ padding: 20, borderLeft: "3px solid #f87171" }}>
-            <span className="cb-label" style={{ color: "#f87171", marginBottom: 10, display: "block" }}>The Verdict</span>
-            <p style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.45 }}>{sv(report.verdict)}</p>
-            {report.failure_type && (
-              <span style={{ display: "inline-block", marginTop: 10, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", padding: "3px 10px", borderRadius: 20, background: "rgba(248,113,113,0.1)", color: "#f87171", border: "1px solid rgba(248,113,113,0.2)" }}>
-                {sv(report.failure_type).replace(/_/g, " ")}
-              </span>
-            )}
+            <div className="flex items-center gap-4 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4">
+              {(() => {
+                const baseScore = report.title_score || 60;
+                const revivalScore =
+                  typeof report.revival_probability === "number"
+                    ? report.revival_probability
+                    : report.revival_possible
+                      ? Math.min(95, Math.max(40, baseScore))
+                      : 20;
+                const radius = 30;
+                const circumference = 2 * Math.PI * radius;
+                const offset = circumference - (revivalScore / 100) * circumference;
+                const color =
+                  revivalScore >= 70 ? "#4ade80" : revivalScore >= 45 ? "#facc15" : "#f97373";
+
+                return (
+                  <>
+                    <div className="relative h-20 w-20">
+                      <svg
+                        viewBox="0 0 80 80"
+                        className="h-20 w-20 -rotate-90"
+                      >
+                        <circle
+                          cx="40"
+                          cy="40"
+                          r={radius}
+                          stroke="rgba(63,63,70,0.6)"
+                          strokeWidth="7"
+                          fill="transparent"
+                        />
+                        <circle
+                          cx="40"
+                          cy="40"
+                          r={radius}
+                          stroke={color}
+                          strokeWidth="7"
+                          strokeLinecap="round"
+                          fill="transparent"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={offset}
+                          className="transition-all duration-700 ease-out"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center rotate-90">
+                        <span className="text-xs text-zinc-400">Revival</span>
+                        <span className="text-lg font-semibold" style={{ color }}>
+                          {revivalScore}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="cb-label text-[11px] tracking-[0.18em] uppercase text-zinc-500">
+                        Revival Probability
+                      </p>
+                      <p className="text-[13px] text-zinc-300">
+                        {report.revival_possible
+                          ? "This video can be revived with the right edits."
+                          : "Revival is unlikely — use this as a lesson for your next upload."}
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 10 }}>
-            <div className="cb-card" style={{ padding: 16, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-              <span className="cb-label" style={{ marginBottom: 8 }}>Title Score</span>
-              <p style={{ fontSize: 40, fontWeight: 900, color: scoreColor(report.title_score || 0), lineHeight: 1 }}>{report.title_score || 0}</p>
-              <p style={{ fontSize: 10, color: "#52525b", marginTop: 4 }}>/100</p>
-            </div>
-            <div className="cb-card" style={{ padding: 16 }}>
-              <span className="cb-label" style={{ color: "#f87171", marginBottom: 6, display: "block" }}>Problem</span>
-              <p style={{ fontSize: 13, color: "#a1a1aa", marginBottom: 12, lineHeight: 1.5 }}>{sv(report.title_problem)}</p>
-              <span className="cb-label" style={{ color: "#4ade80", marginBottom: 6, display: "block" }}>Fixed Title</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.15)", borderRadius: 9, padding: "10px 14px" }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#4ade80", flex: 1 }}>{sv(report.title_fix)}</p>
-                <button onClick={() => { navigator.clipboard.writeText(sv(report.title_fix)); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#4ade80", padding: 4, minHeight: 24, display: "flex", alignItems: "center" }}>
+          {/* Intelligence strips */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4">
+              <p className="cb-label flex items-center gap-2 text-[11px] tracking-[0.18em] uppercase text-rose-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" /> Title Intelligence
+              </p>
+              <p className="text-xs text-zinc-400">{sv(report.title_problem)}</p>
+              <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/5 px-3 py-2">
+                <span className="cb-label text-[10px] text-emerald-300">Fixed Title</span>
+                <p className="flex-1 text-[12px] font-semibold text-emerald-200 line-clamp-2">
+                  {sv(report.title_fix)}
+                </p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(sv(report.title_fix));
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  }}
+                  className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/10 text-emerald-200"
+                >
                   {copied ? <Check size={13} /> : <Copy size={13} />}
                 </button>
               </div>
             </div>
-          </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div className="cb-card" style={{ padding: 16 }}>
-              <span className="cb-label" style={{ color: "#f87171", marginBottom: 6, display: "block" }}>Thumbnail Problem</span>
-              <p style={{ fontSize: 13, color: "#a1a1aa", lineHeight: 1.5, marginBottom: 10 }}>{sv(report.thumbnail_problem)}</p>
-              <span className="cb-label" style={{ color: "#4ade80", marginBottom: 6, display: "block" }}>Fix</span>
-              <p style={{ fontSize: 13, lineHeight: 1.5 }}>{sv(report.thumbnail_fix)}</p>
-            </div>
-            <div className="cb-card" style={{ padding: 16 }}>
-              <span className="cb-label" style={{ color: "#facc15", marginBottom: 6, display: "block" }}>Hook Problem</span>
-              <p style={{ fontSize: 13, color: "#a1a1aa", lineHeight: 1.5, marginBottom: 10 }}>{sv(report.hook_problem)}</p>
-              <span className="cb-label" style={{ color: "#a78bfa", marginBottom: 6, display: "block" }}>Algorithm Reason</span>
-              <p style={{ fontSize: 13, lineHeight: 1.5 }}>{sv(report.algorithm_reason)}</p>
-            </div>
-          </div>
-
-          {report.revival_possible && (
-            <div className="cb-card" style={{ padding: 16, borderLeft: "3px solid #4ade80" }}>
-              <span className="cb-label" style={{ color: "#4ade80", marginBottom: 8, display: "block" }}>Revival Is Possible</span>
-              <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>{sv(report.revival_strategy)}</p>
-            </div>
-          )}
-
-          <div className="cb-card" style={{ padding: 20, borderLeft: "3px solid #facc15" }}>
-            <span className="cb-label" style={{ color: "#facc15", marginBottom: 12, display: "block" }}>Do This Right Now</span>
-            {(report.do_this_now || []).map((a: string, i: number) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
-                <span style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#facc15", flexShrink: 0 }}>
-                  {i + 1}
-                </span>
-                <p style={{ fontSize: 14, lineHeight: 1.5, paddingTop: 2 }}>{sv(a)}</p>
+            <div className="space-y-2 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4">
+              <p className="cb-label flex items-center gap-2 text-[11px] tracking-[0.18em] uppercase text-amber-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-300" /> Thumbnail & Hook
+              </p>
+              <div className="space-y-1.5">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-rose-400" />
+                  <p className="text-xs text-zinc-400">
+                    {sv(report.thumbnail_problem)}
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-sky-400" />
+                  <p className="text-xs text-zinc-400">
+                    {sv(report.hook_problem)}
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-violet-400" />
+                  <p className="text-xs text-zinc-400">
+                    {sv(report.algorithm_reason)}
+                  </p>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
 
+          {/* Strategic action plan */}
+          <div className="rounded-2xl border border-amber-400/40 bg-[#0A0A0A] p-5">
+            <p className="cb-label mb-2 text-[11px] tracking-[0.18em] uppercase text-amber-300">
+              Strategic Action Plan
+            </p>
+            <p className="mb-3 text-xs text-zinc-400">
+              Three precise moves to either revive this video or ensure the next one massively outperforms it.
+            </p>
+            <div className="space-y-2">
+              {(report.do_this_now || []).map((a: string, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3 rounded-xl border border-white/5 bg-black/30 px-3 py-2"
+                >
+                  <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-[11px] font-semibold text-amber-300">
+                    {i + 1}
+                  </span>
+                  <p className="text-xs leading-relaxed text-zinc-200">
+                    {sv(a)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
