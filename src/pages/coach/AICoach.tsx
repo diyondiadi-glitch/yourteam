@@ -72,40 +72,29 @@ export default function AICoach() {
     }
   }
 
-  async function handleSend(text?: string) {
-    const content = text || input.trim();
-    if (!content || loading) return;
-
-    const userMsg: Message = { role: "user", content };
-    const updatedMsgs = [...messages, userMsg];
-    setMessages(updatedMsgs);
-    setInput("");
+  async function sendMessage(userText: string) {
+    const newHistory = [...messages, { role: "user" as const, content: userText }];
+    setMessages(newHistory);
     setLoading(true);
-    setFollowUpChips([]);
 
-    try {
-      const systemPrompt = `You are Max — a sharp YouTube growth coach. You know this creator's channel inside out. 
+    const stored = localStorage.getItem("yt_channel_data");
+    const ch = stored ? JSON.parse(stored) : {};
+    const avg = ch.videos?.length ? Math.round(ch.videos.reduce((s:number,v:any)=>s+(v.views||0),0)/ch.videos.length) : 0;
 
-STRICT RULES you never break: 
-- MAXIMUM 3 sentences per response. Never more. Ever. 
-- Every response MUST include one specific number from their data (views, subscribers, days, percentages) 
-- End every response with exactly one action starting with a verb 
-- No fluff, no "great question", no "I understand", no "however" 
-- Sound like a brilliant friend texting, not an essay writer 
+    const historyText = newHistory
+      .map(m => `${m.role === "user" ? "User" : "Max"}: ${m.content}`)
+      .join("\n");
 
-Channel data: ${channelContext}`;
+    const reply = await callAI(
+      `You are Max, a brutally honest YouTube growth coach. You know this creator's channel deeply.
+Channel: ${ch.name}, ${ch.subscribers} subs, ${avg} avg views.
+Recent videos: ${(ch.videos||[]).slice(0,5).map((v:any)=>`"${v.title}" ${v.views}v`).join(" | ")}
+RULES: Never repeat a previous message. Always respond directly to what the user just said. Be specific, reference their actual videos and numbers. Keep responses under 4 sentences unless asked for more.`,
+      `Conversation so far:\n${historyText}\n\nRespond to the user's latest message now:`
+    );
 
-      const response = await callAI(systemPrompt, content, { maxTokens: 200 });
-      const assistantMsg: Message = { role: "assistant", content: response };
-      const finalMsgs = [...updatedMsgs, assistantMsg];
-      setMessages(finalMsgs);
-      localStorage.setItem("cb_coach_history", JSON.stringify(finalMsgs));
-      setFollowUpChips(["Tell me more", "Give me the action steps"]);
-    } catch (e) {
-      setMessages([...updatedMsgs, { role: "assistant", content: "Sorry, I hit a snag. Can you try asking that again?" }]);
-    } finally {
-      setLoading(false);
-    }
+    setMessages([...newHistory, { role: "assistant" as const, content: reply }]);
+    setLoading(false);
   }
 
   const quickActionChips = [
@@ -187,7 +176,7 @@ Channel data: ${channelContext}`;
                   {followUpChips.map(chip => (
                     <button
                       key={chip}
-                      onClick={() => handleSend(chip)}
+                      onClick={() => sendMessage(chip)}
                       className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 transition-all"
                     >
                       {chip}
@@ -209,7 +198,7 @@ Channel data: ${channelContext}`;
               {quickActionChips.map(chip => (
                 <button
                   key={chip.label}
-                  onClick={() => handleSend(chip.label)}
+                  onClick={() => sendMessage(chip.label)}
                   className="flex items-center gap-2 px-4 py-2 bg-zinc-900/50 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-400 hover:text-white hover:border-zinc-700 transition-all"
                 >
                   <chip.icon className="h-3.5 w-3.5" />
@@ -223,14 +212,14 @@ Channel data: ${channelContext}`;
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
               placeholder="Ask Max anything about your channel..."
               className="h-14 bg-zinc-900 border-zinc-800 text-white rounded-2xl px-6 focus-visible:ring-yellow-500/50 pr-16"
             />
             <Button
               size="icon"
               disabled={loading || !input.trim()}
-              onClick={() => handleSend()}
+              onClick={() => sendMessage(input)}
               className="absolute right-2 h-10 w-10 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl shrink-0"
             >
               <Send className="h-5 w-5" />

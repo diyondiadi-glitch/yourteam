@@ -28,17 +28,27 @@ export default function Dashboard() {
 
   useEffect(() => { if (channel && videos.length > 0 && !ran.current) { ran.current = true; run(); } }, [channel, videos]);
 
+  const [bestDay, setBestDay] = useState("—");
+
   async function run() {
     setLoading(true); setProgress(20);
     const fail = [...videos].sort((a, b) => (a.views || 0) - (b.views || 0)).slice(0, 3);
     const win = [...videos].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3);
-    const days: Record<string, number> = {};
-    videos.forEach(v => { if (!v.publishedAt) return; const d = new Date(v.publishedAt).toLocaleDateString("en-US", { weekday: "long" }); days[d] = (days[d] || 0) + 1; });
-    const bestDay = Object.entries(days).sort((a, b) => b[1] - a[1])[0]?.[0] || "Unknown";
+    const dayViews: Record<string,{total:number,count:number}> = {};
+    videos.forEach(v => {
+      if(!v.publishedAt) return;
+      const d = new Date(v.publishedAt).toLocaleDateString("en-US",{weekday:"long"});
+      if(!dayViews[d]) dayViews[d]={total:0,count:0};
+      dayViews[d].total += (v.views||0);
+      dayViews[d].count += 1;
+    });
+    const bestDayCalc = Object.entries(dayViews)
+      .sort((a,b)=>(b[1].total/b[1].count)-(a[1].total/a[1].count))[0]?.[0]||"—";
+    setBestDay(bestDayCalc);
     setProgress(40);
     const r = await callAI(
       "Brutal YouTube strategist. Max 12 words per insight. Reference actual titles and numbers.",
-      `Analyse channel. Return ONLY raw JSON:\n{"biggest_problem":"max 15 words brutal truth","momentum":"growing"|"plateauing"|"declining","best_upload_day":"${bestDay}","best_upload_time":"time IST","hidden_opportunity":"specific topic max 12 words","this_week_action":"one action max 12 words","failing_video_reasons":["reason for video 1","reason for video 2","reason for video 3"]}\nChannel:${channel?.name} ${channel?.subscribers}subs ${avg}avg\nBest:${win.map(v => `"${v.title}"${v.views}v`).join("|")}\nWorst:${fail.map(v => `"${v.title}"${v.views}v`).join("|")}\nRecent:${videos.slice(0, 8).map(v => `"${v.title}"${v.views}v`).join("|")}`
+      `Analyse channel. Return ONLY raw JSON:\n{"biggest_problem":"max 15 words brutal truth","momentum":"growing"|"plateauing"|"declining","best_upload_time":"time IST","hidden_opportunity":"specific topic max 12 words","this_week_action":"one action max 12 words","failing_video_reasons":["reason for video 1","reason for video 2","reason for video 3"]}\nChannel:${channel?.name} ${channel?.subscribers}subs ${avg}avg\nBest:${win.map(v => `"${v.title}"${v.views}v`).join("|")}\nWorst:${fail.map(v => `"${v.title}"${v.views}v`).join("|")}\nRecent:${videos.slice(0, 8).map(v => `"${v.title}"${v.views}v`).join("|")}`
     );
     setProgress(100); setBrief(extractJson(r)); setLoading(false);
   }
@@ -77,7 +87,7 @@ export default function Dashboard() {
         </div>
         <p style={{ fontSize: 18, fontWeight: 800, color: "#f0f0f1", marginBottom: 20, lineHeight: 1.4 }}>{sv(brief.biggest_problem)}</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {[{ label: "Post On", icon: <Clock size={14} />, value: dayName(sv(brief.best_upload_day)), sub: sv(brief.best_upload_time), color: "#facc15" }, { label: "Hidden Opportunity", icon: <Lightbulb size={14} />, value: sv(brief.hidden_opportunity), sub: "", color: "#a78bfa" }, { label: "This Week", icon: <Zap size={14} />, value: sv(brief.this_week_action), sub: "", color: "#4ade80" }].map(item => (
+          {[{ label: "Post On", icon: <Clock size={14} />, value: bestDay, sub: sv(brief.best_upload_time), color: "#facc15" }, { label: "Hidden Opportunity", icon: <Lightbulb size={14} />, value: sv(brief.hidden_opportunity), sub: "", color: "#a78bfa" }, { label: "This Week", icon: <Zap size={14} />, value: sv(brief.this_week_action), sub: "", color: "#4ade80" }].map(item => (
             <div key={item.label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
               <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525b", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>{item.icon}{item.label}</p>
               <p style={{ fontSize: 13, fontWeight: 700, color: item.color, lineHeight: 1.4 }}>{item.value}</p>
@@ -89,7 +99,7 @@ export default function Dashboard() {
       </div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }} className="cb-grid-4">
-        {[{ label: "Avg Views", value: fmt(avgAnim), color: "#60a5fa" }, { label: "Health", value: `${Math.min(100, Math.round(videos.filter(v => v.views > avg * 1.2).length / Math.max(videos.length, 1) * 100 + 40))}/100`, color: "#4ade80" }, { label: "Best Day", value: brief ? dayName(sv(brief.best_upload_day)) : "—", color: "#facc15" }, { label: "Videos", value: String(videos.length), color: "#a1a1aa" }].map(s => (
+        {[{ label: "Avg Views", value: fmt(avgAnim), color: "#60a5fa" }, { label: "Health", value: `${Math.min(100, Math.round(videos.filter(v => v.views > avg * 1.2).length / Math.max(videos.length, 1) * 100 + 40))}/100`, color: "#4ade80" }, { label: "Best Day", value: bestDay, color: "#facc15" }, { label: "Videos", value: String(videos.length), color: "#a1a1aa" }].map(s => (
           <div key={s.label} className="cb-card" style={{ padding: 14, textAlign: "center" }}>
             <span className="cb-label">{s.label}</span>
             <p style={{ fontSize: 22, fontWeight: 800, color: s.color, marginTop: 4 }}>{s.value}</p>

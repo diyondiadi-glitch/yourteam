@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { useChannelData } from "@/hooks/useChannelData";
-import { searchChannel, getChannelById, getChannelVideos } from "@/lib/youtube-api";
 import { formatCount } from "@/lib/utils";
 import { callAI, parseJsonSafely } from "@/lib/ai-service";
 import { friendlyError } from "@/lib/errors";
@@ -26,6 +25,69 @@ const fade = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0 },
 };
+
+async function fetchCompetitorChannel(input: string) {
+  const YT_KEY = "AIzaSyAz-3Zhkq7DaeodW4s_2zTXW_zHvtzqXzc";
+  let channelId = "";
+
+  // Extract channel ID from URL
+  if (input.includes("youtube.com/channel/")) {
+    channelId = input.split("youtube.com/channel/")[1].split(/[/?&]/)[0];
+  } else {
+    // Search by handle or name
+    const handle = input.replace("https://","").replace("http://","")
+      .replace("www.youtube.com/","").replace("@","").split("/")[0].split("?")[0];
+    const searchRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(handle)}&type=channel&maxResults=1&key=${YT_KEY}`
+    );
+    const searchData = await searchRes.json();
+    if (!searchData.items?.length) throw new Error(`No channel found for "${input}". Try pasting the full YouTube URL.`);
+    channelId = searchData.items[0].snippet.channelId;
+  }
+
+  // Get channel details
+  const chanRes = await fetch(
+    `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${YT_KEY}`
+  );
+  const chanData = await chanRes.json();
+  if (!chanData.items?.length) throw new Error("Could not load channel data. Try again.");
+  const chan = chanData.items[0];
+
+  // Get their videos
+  const vidRes = await fetch(
+    `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=20&order=viewCount&type=video&key=${YT_KEY}`
+  );
+  const vidData = await vidRes.json();
+  const videoIds = (vidData.items||[]).map((v:any)=>v.id.videoId).filter(Boolean).join(",");
+
+  // Get video stats
+  let videos: any[] = [];
+  if (videoIds) {
+    const statsRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=${videoIds}&key=${YT_KEY}`
+    );
+    const statsData = await statsRes.json();
+    videos = (statsData.items||[]).map((v:any)=>(
+      {
+        id: v.id,
+        title: v.snippet.title,
+        thumbnail: v.snippet.thumbnails?.medium?.url || v.snippet.thumbnails?.default?.url,
+        views: parseInt(v.statistics.viewCount||"0"),
+        likes: parseInt(v.statistics.likeCount||"0"),
+        publishedAt: v.snippet.publishedAt,
+      }
+    ));
+  }
+
+  return {
+    id: channelId,
+    name: chan.snippet.title,
+    avatar: chan.snippet.thumbnails?.medium?.url,
+    subscribers: parseInt(chan.statistics.subscriberCount||"0"),
+    totalViews: parseInt(chan.statistics.viewCount||"0"),
+    videos,
+  };
+}
 
 export default function CompetitorSpy() {
   const navigate = useNavigate();
@@ -59,24 +121,12 @@ export default function CompetitorSpy() {
       setMyChannel(myData);
 
       setLoadMsg("🔍 Finding competitor channel...");
-      const cleanQuery = query.trim()
-        .replace("https://", "").replace("http://", "")
-        .replace("www.youtube.com/", "").replace("youtube.com/", "")
-        .replace("@", "").split("/")[0].split("?")[0].trim();
-
-      const compId = await searchChannel(cleanQuery);
-      if (!compId) throw new Error("Channel not found. Try their @handle directly.");
-
-      setLoadMsg("📊 Loading competitor data...");
-      const comp = await getChannelById(compId);
-      if (!comp) throw new Error("Could not load channel data.");
-      setCompetitor(comp);
-
-      const compVids = await getChannelVideos(compId, 10);
-      setCompVideos(compVids);
+      const competitorData = await fetchCompetitorChannel(query.trim());
+      setCompetitor(competitorData);
+      setCompVideos(competitorData.videos || []);
 
       const myContext = `MY CHANNEL: ${myData.name}, ${myData.subscribers} subs, avg ${myData.avgViews} views. Videos: ${myVids.map((v: any) => `"${v.title}" ${v.views} views`).join(", ")}`;
-      const compContext = `COMPETITOR: ${comp.title}, ${comp.subscriberCount} subs. Videos: ${compVids.slice(0, 6).map((v: any) => `"${v.title}" ${v.viewCount || v.views} views`).join(", ")}`;
+      const compContext = `COMPETITOR: ${competitorData.name}, ${competitorData.subscribers} subs. Videos: ${(competitorData.videos||[]).slice(0, 6).map((v: any) => `"${v.title}" ${v.views} views`).join(", ")}`;
 
       function extractJson(text: string): any {
         if (!text) return null;
