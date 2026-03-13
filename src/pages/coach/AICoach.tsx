@@ -154,11 +154,11 @@ RULES: Never repeat a previous message. Always respond directly to what the user
                   className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div 
-                    className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
-                      m.role === "user" 
-                        ? "bg-zinc-800 text-white" 
-                        : "bg-zinc-900 border-l-4 border-yellow-500 text-zinc-200"
-                    }`}
+                    className="max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed"
+                    style={m.role === "user" 
+                      ? { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "hsl(var(--foreground))" }
+                      : { background: "hsl(var(--background-card))", border: "1px solid rgba(255,255,255,0.07)", borderLeft: "3px solid #facc15", boxShadow: "0 0 0 1px rgba(250,204,21,0.06), 0 4px 20px rgba(250,204,21,0.03)", color: "hsl(var(--foreground))" }
+                    }
                   >
                     {m.content}
                   </div>
