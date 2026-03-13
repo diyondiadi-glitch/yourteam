@@ -461,7 +461,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
           </div>
 
           {/* Strategic action plan */}
-          <div className="rounded-2xl border border-amber-400/40 bg-[#0A0A0A] p-5">
+          <div className="rounded-2xl border border-amber-400/40 bg-[#0A0A0A] p-5 cb-card-glow-yellow">
             <p className="cb-label mb-2 text-[11px] tracking-[0.18em] uppercase text-amber-300">
               Strategic Action Plan
             </p>
