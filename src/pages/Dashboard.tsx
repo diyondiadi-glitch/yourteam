@@ -102,7 +102,7 @@ export default function Dashboard() {
         <p style={{ fontSize: 13, fontWeight: 800, color: "#f87171", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Videos That Are Failing</p>
         <div style={{ display: "grid", gap: 8 }}>
           {fail.map((v, i) => (
-            <div key={v.id} className="cb-card cb-card-hover" onClick={() => navigate("/diagnose/video-death")} style={{ padding: 14, borderLeft: "3px solid #f87171" }}>
+            <div key={v.id} className="cb-card cb-card-hover cb-card-glow-red cb-lift" onClick={() => navigate("/diagnose/video-death", { state: { videoId: v.id } })} style={{ padding: 14, borderLeft: "3px solid #f87171" }}>
               <p style={{ fontSize: 12, fontWeight: 800, color: "#f87171" }}>{fmt(v.views)} views — {avg > 0 ? Math.round((v.views / avg) * 100) : 0}% of avg</p>
               <p style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f1", marginTop: 2 }}>{v.title}</p>
               {brief?.failing_video_reasons?.[i] && <p style={{ fontSize: 12, color: "#52525b", marginTop: 4 }}>{sv(brief.failing_video_reasons[i])}</p>}
