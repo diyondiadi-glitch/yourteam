@@ -220,7 +220,7 @@ RULES: Never repeat a previous message. Always respond directly to what the user
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
+              onKeyDown={(e) => { if (e.key === "Enter" && input.trim()) { sendMessage(input); } }}
               placeholder="Ask Max anything about your channel..."
               className="h-14 bg-zinc-900 border-zinc-800 text-white rounded-2xl px-6 focus-visible:ring-yellow-500/50 pr-16"
             />
