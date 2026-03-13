@@ -60,9 +60,14 @@ export default function VideoDeath() {
       setAvg(a);
 
       const storedSel = getSelectedVideo();
+      const passedId = (location.state as any)?.videoId;
       let initial: any | null = null;
 
-      if (storedSel) {
+      if (passedId) {
+        initial = vids.find(v => v.id === passedId) || null;
+      }
+
+      if (!initial && storedSel) {
         initial = vids.find(v => v.id === storedSel.id) || null;
       }
 
