@@ -44,6 +44,7 @@ export default function VideoDeath() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const maxV = useMemo(() => videos.length ? Math.max(...videos.map(v => v.views || 0)) : 0, [videos]);
 
   useEffect(() => {
     try {
