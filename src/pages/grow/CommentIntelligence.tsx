@@ -17,6 +17,8 @@ export default function CommentIntelligence() {
   const [topVids, setTopVids] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
+  const [allVids, setAllVids] = useState<any[]>([]);
+  const [selectedVids, setSelectedVids] = useState<any[]>([]);
 
   useEffect(() => {
     const s = localStorage.getItem("cb_channel_data");
