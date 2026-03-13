@@ -755,7 +755,7 @@ ${myContext} ${compContext}`
 
           {/* 3-STEP ACTION PLAN */}
           {(report.action_plan || []).length > 0 && (
-            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.75 }} className="cb-card" style={{ borderLeft: "4px solid #4ade80" }}>
+            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.75 }} className="cb-card cb-card-glow-green" style={{ borderLeft: "4px solid #4ade80" }}>
               <p className="t-label mb-4 flex items-center gap-2" style={{ color: "#4ade80" }}>
                 <Shield className="h-4 w-4" /> Your 3 Moves This Week
               </p>

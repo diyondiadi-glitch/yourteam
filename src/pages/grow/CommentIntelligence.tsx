@@ -139,7 +139,7 @@ export default function CommentIntelligence() {
           </div>
         </div>
 
-        {report.hidden_insight && <div className="cb-card" style={{ marginBottom: 16, borderLeft: "3px solid #facc15", padding: 16 }}>
+        {report.hidden_insight && <div className="cb-card cb-card-glow-blue" style={{ marginBottom: 16, borderLeft: "3px solid #facc15", padding: 16 }}>
           <span className="cb-label" style={{ color: "#facc15" }}>Hidden Insight</span>
           <p style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f1", marginTop: 6 }}>{sv(report.hidden_insight)}</p>
         </div>}
