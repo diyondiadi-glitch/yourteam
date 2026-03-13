@@ -102,11 +102,14 @@ RULES: Never repeat a previous message. Always respond directly to what the user
     setLoading(false);
   }
 
+  const worstVideo = [...(videos || [])].sort((a, b) => (a.views||0) - (b.views||0))[0];
+  const bestVideo  = [...(videos || [])].sort((a, b) => (b.views||0) - (a.views||0))[0];
+  const subGoal = subscribers < 1000 ? "hitting 1K subs" : subscribers < 10000 ? "hitting 10K subs" : subscribers < 100000 ? "hitting 100K subs" : "doubling my monthly views";
   const quickActionChips = [
-    { label: `Why is my channel ${subscribers < 1000 ? 'slow' : 'plateauing'}?`, icon: BarChart3 },
-    { label: `What should I post on ${bestDay}?`, icon: Target },
-    { label: "Roast my last video", icon: Flame },
-    { label: "Give me my 30-day plan", icon: Zap },
+    { label: worstVideo ? `Why did "${worstVideo.title.slice(0,34)}${worstVideo.title.length>34?"…":""}" flop?` : "Why is my channel slow?", icon: BarChart3 },
+    { label: bestVideo ? `How do I replicate "${bestVideo.title.slice(0,28)}${bestVideo.title.length>28?"…":""}"?` : "What should I post next?", icon: Target },
+    { label: "Roast my last 3 videos brutally", icon: Flame },
+    { label: `Give me my 30-day plan for ${subGoal}`, icon: Zap },
   ];
 
   if (!isConnected) return null;
