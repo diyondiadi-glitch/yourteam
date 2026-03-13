@@ -78,7 +78,7 @@ export default function Dashboard() {
         </div>
         <p style={{ fontSize: 18, fontWeight: 800, color: "#f0f0f1", marginBottom: 20, lineHeight: 1.4 }}>{sv(brief.biggest_problem)}</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {[{ label: "Post On", icon: <Clock size={14} />, value: bestDay, sub: sv(brief.best_upload_time), color: "#facc15" }, { label: "Hidden Opportunity", icon: <Lightbulb size={14} />, value: sv(brief.hidden_opportunity), sub: "", color: "#a78bfa" }, { label: "This Week", icon: <Zap size={14} />, value: sv(brief.this_week_action), sub: "", color: "#4ade80" }].map(item => (
+          {[{ label: "Post On", icon: <Clock size={14} />, value: bestDay, sub: "", color: "#facc15" }, { label: "Hidden Opportunity", icon: <Lightbulb size={14} />, value: sv(brief.hidden_opportunity), sub: "", color: "#a78bfa" }, { label: "This Week", icon: <Zap size={14} />, value: sv(brief.this_week_action), sub: "", color: "#4ade80" }].map(item => (
             <div key={item.label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
               <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525b", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>{item.icon}{item.label}</p>
               <p style={{ fontSize: 13, fontWeight: 700, color: item.color, lineHeight: 1.4 }}>{item.value}</p>
