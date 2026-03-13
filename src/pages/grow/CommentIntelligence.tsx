@@ -128,7 +128,7 @@ export default function CommentIntelligence() {
       {report && !loading && <div className="cb-fade">
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }} className="cb-grid-2">
-          <div className="cb-card" style={{ padding: 16, textAlign: "center" }}>
+          <div className="cb-card cb-card-glow-blue" style={{ padding: 16, textAlign: "center" }}>
             <span className="cb-label">Sentiment</span>
             <p style={{ fontSize: 36, fontWeight: 800, color: sentimentColor, margin: "6px 0 0" }}>{report.sentiment_score}</p>
             <p style={{ fontSize: 12, color: "#52525b" }}>{sv(report.overall_sentiment)}</p>
