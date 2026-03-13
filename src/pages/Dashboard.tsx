@@ -35,21 +35,11 @@ export default function Dashboard() {
     setLoading(true); setProgress(20);
     const fail = [...videos].sort((a, b) => (a.views || 0) - (b.views || 0)).slice(0, 3);
     const win = [...videos].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3);
-    const dayViews: Record<string,{total:number,count:number}> = {};
-    videos.forEach(v => {
-      if(!v.publishedAt) return;
-      const d = new Date(v.publishedAt).toLocaleDateString("en-US",{weekday:"long"});
-      if(!dayViews[d]) dayViews[d]={total:0,count:0};
-      dayViews[d].total += (v.views||0);
-      dayViews[d].count += 1;
-    });
-    const bestDayCalc = Object.entries(dayViews)
-      .sort((a,b)=>(b[1].total/b[1].count)-(a[1].total/a[1].count))[0]?.[0]||"—";
-    setBestDay(bestDayCalc);
+    setBestDay(channel?.bestDay || "—");
     setProgress(40);
     const r = await callAI(
       "Brutal YouTube strategist. Max 12 words per insight. Reference actual titles and numbers.",
-      `Analyse channel. Return ONLY raw JSON:\n{"biggest_problem":"max 15 words brutal truth","momentum":"growing"|"plateauing"|"declining","best_upload_time":"time IST","hidden_opportunity":"specific topic max 12 words","this_week_action":"one action max 12 words","failing_video_reasons":["reason for video 1","reason for video 2","reason for video 3"]}\nChannel:${channel?.name} ${channel?.subscribers}subs ${avg}avg\nBest:${win.map(v => `"${v.title}"${v.views}v`).join("|")}\nWorst:${fail.map(v => `"${v.title}"${v.views}v`).join("|")}\nRecent:${videos.slice(0, 8).map(v => `"${v.title}"${v.views}v`).join("|")}`
+      `Analyse channel. Return ONLY raw JSON:\n{"biggest_problem":"max 15 words brutal truth","momentum":"growing"|"plateauing"|"declining","hidden_opportunity":"specific topic max 12 words","this_week_action":"one action max 12 words","failing_video_reasons":["reason for video 1","reason for video 2","reason for video 3"]}\nChannel:${channel?.name} ${channel?.subscribers}subs ${avg}avg\nBest:${win.map(v => `"${v.title}"${v.views}v`).join("|")}\nWorst:${fail.map(v => `"${v.title}"${v.views}v`).join("|")}\nRecent:${videos.slice(0, 8).map(v => `"${v.title}"${v.views}v`).join("|")}`
     );
     setProgress(100); setBrief(extractJson(r)); setLoading(false);
   }
