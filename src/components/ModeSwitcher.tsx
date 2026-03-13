@@ -130,7 +130,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
             <span className="text-xs text-muted-foreground hidden md:inline">{channelName}</span>
           </div>
         )}
-        <button onClick={() => { clearChannelData(); navigate("/"); }} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Disconnect">
+        <button onClick={() => { localStorage.removeItem("cb_coach_history"); clearChannelData(); navigate("/"); }} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Disconnect">
           <LogOut className="h-3.5 w-3.5" />
         </button>
       </div>

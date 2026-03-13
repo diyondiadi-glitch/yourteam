@@ -227,7 +227,7 @@ RULES: Never repeat a previous message. Always respond directly to what the user
             <Button
               size="icon"
               disabled={loading || !input.trim()}
-              onClick={() => sendMessage(input)}
+              onClick={() => { if (input.trim()) sendMessage(input); }}
               className="absolute right-2 h-10 w-10 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl shrink-0"
             >
               <Send className="h-5 w-5" />
