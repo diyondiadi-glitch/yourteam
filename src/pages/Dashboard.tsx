@@ -61,7 +61,7 @@ export default function Dashboard() {
             <p style={{ fontSize: 13, color: "#52525b", margin: 0 }}>{fmt(subs)} subscribers</p>
           </div>
         </div>
-        <button onClick={() => { localStorage.removeItem("cb_channel_data"); navigate("/"); }} style={{ fontSize: 12, color: "#3f3f46", background: "none", border: "none", cursor: "pointer", padding: "8px 12px", borderRadius: 8 }}>Disconnect</button>
+        <button onClick={() => { localStorage.removeItem("cb_channel_data"); localStorage.removeItem("cb_coach_history"); navigate("/"); }} style={{ fontSize: 12, color: "#3f3f46", background: "none", border: "none", cursor: "pointer", padding: "8px 12px", borderRadius: 8 }}>Disconnect</button>
       </div>
 
       {loading && <div style={{ textAlign: "center", padding: "48px 0" }}>
