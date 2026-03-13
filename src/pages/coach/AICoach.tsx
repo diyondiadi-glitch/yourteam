@@ -73,11 +73,14 @@ export default function AICoach() {
   }
 
   async function sendMessage(userText: string) {
+    if (!userText.trim()) return;
+    setFollowUpChips([]);
     const newHistory = [...messages, { role: "user" as const, content: userText }];
     setMessages(newHistory);
+    setInput("");
     setLoading(true);
 
-    const stored = localStorage.getItem("yt_channel_data");
+    const stored = localStorage.getItem("cb_channel_data");
     const ch = stored ? JSON.parse(stored) : {};
     const avg = ch.videos?.length ? Math.round(ch.videos.reduce((s:number,v:any)=>s+(v.views||0),0)/ch.videos.length) : 0;
 
@@ -93,7 +96,9 @@ RULES: Never repeat a previous message. Always respond directly to what the user
       `Conversation so far:\n${historyText}\n\nRespond to the user's latest message now:`
     );
 
-    setMessages([...newHistory, { role: "assistant" as const, content: reply }]);
+    const finalHistory = [...newHistory, { role: "assistant" as const, content: reply }];
+    setMessages(finalHistory);
+    localStorage.setItem("cb_coach_history", JSON.stringify(finalHistory));
     setLoading(false);
   }
 
