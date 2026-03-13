@@ -27,6 +27,8 @@ export default function CommentIntelligence() {
     const sorted = [...(d.videos || [])].sort((a: any, b: any) => (b.views || 0) - (a.views || 0));
     const top = sorted.slice(0, 3);
     setTopVids(top);
+    setAllVids(d.videos || []);
+    setSelectedVids(top);
     run(top, d);
   }, []);
 
