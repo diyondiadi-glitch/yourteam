@@ -33,10 +33,10 @@ const scoreColor = (n: number) => n >= 70 ? "#4ade80" : n >= 50 ? "#facc15" : "#
 
 export default function VideoDeath() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [videos, setVideos] = useState<any[]>([]);
   const [channel, setChannel] = useState<any>(null);
   const [avg, setAvg] = useState(0);
-  const [maxV, setMaxV] = useState(0);
   const [sel, setSel] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
