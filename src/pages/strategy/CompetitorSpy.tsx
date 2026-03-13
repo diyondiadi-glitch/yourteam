@@ -477,7 +477,7 @@ ${myContext} ${compContext}`
 
           {/* WIN / LOSE SPLIT */}
           <div className="grid md:grid-cols-2 gap-4">
-            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.1 }} className="cb-card cb-card-problem">
+            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.1 }} className="cb-card cb-card-problem cb-card-glow-red">
               <p className="t-label mb-3 flex items-center gap-2" style={{ color: "#f87171" }}>
                 <TrendingDown className="h-4 w-4" /> They Win At
               </p>
