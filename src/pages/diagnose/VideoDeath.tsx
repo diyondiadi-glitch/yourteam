@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronDown, RefreshCw, Copy, Check, AlertTriangle } from "lucide-react";
 import { callAI } from "@/lib/ai-service";
 import { getMyChannel } from "@/lib/youtube-api";
