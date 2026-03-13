@@ -35,21 +35,11 @@ export default function Dashboard() {
     setLoading(true); setProgress(20);
     const fail = [...videos].sort((a, b) => (a.views || 0) - (b.views || 0)).slice(0, 3);
     const win = [...videos].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3);
-    const dayViews: Record<string,{total:number,count:number}> = {};
-    videos.forEach(v => {
-      if(!v.publishedAt) return;
-      const d = new Date(v.publishedAt).toLocaleDateString("en-US",{weekday:"long"});
-      if(!dayViews[d]) dayViews[d]={total:0,count:0};
-      dayViews[d].total += (v.views||0);
-      dayViews[d].count += 1;
-    });
-    const bestDayCalc = Object.entries(dayViews)
-      .sort((a,b)=>(b[1].total/b[1].count)-(a[1].total/a[1].count))[0]?.[0]||"—";
-    setBestDay(bestDayCalc);
+    setBestDay(channel?.bestDay || "—");
     setProgress(40);
     const r = await callAI(
       "Brutal YouTube strategist. Max 12 words per insight. Reference actual titles and numbers.",
-      `Analyse channel. Return ONLY raw JSON:\n{"biggest_problem":"max 15 words brutal truth","momentum":"growing"|"plateauing"|"declining","best_upload_time":"time IST","hidden_opportunity":"specific topic max 12 words","this_week_action":"one action max 12 words","failing_video_reasons":["reason for video 1","reason for video 2","reason for video 3"]}\nChannel:${channel?.name} ${channel?.subscribers}subs ${avg}avg\nBest:${win.map(v => `"${v.title}"${v.views}v`).join("|")}\nWorst:${fail.map(v => `"${v.title}"${v.views}v`).join("|")}\nRecent:${videos.slice(0, 8).map(v => `"${v.title}"${v.views}v`).join("|")}`
+      `Analyse channel. Return ONLY raw JSON:\n{"biggest_problem":"max 15 words brutal truth","momentum":"growing"|"plateauing"|"declining","hidden_opportunity":"specific topic max 12 words","this_week_action":"one action max 12 words","failing_video_reasons":["reason for video 1","reason for video 2","reason for video 3"]}\nChannel:${channel?.name} ${channel?.subscribers}subs ${avg}avg\nBest:${win.map(v => `"${v.title}"${v.views}v`).join("|")}\nWorst:${fail.map(v => `"${v.title}"${v.views}v`).join("|")}\nRecent:${videos.slice(0, 8).map(v => `"${v.title}"${v.views}v`).join("|")}`
     );
     setProgress(100); setBrief(extractJson(r)); setLoading(false);
   }
@@ -71,7 +61,7 @@ export default function Dashboard() {
             <p style={{ fontSize: 13, color: "#52525b", margin: 0 }}>{fmt(subs)} subscribers</p>
           </div>
         </div>
-        <button onClick={() => { localStorage.removeItem("cb_channel_data"); navigate("/"); }} style={{ fontSize: 12, color: "#3f3f46", background: "none", border: "none", cursor: "pointer", padding: "8px 12px", borderRadius: 8 }}>Disconnect</button>
+        <button onClick={() => { localStorage.removeItem("cb_channel_data"); localStorage.removeItem("cb_coach_history"); navigate("/"); }} style={{ fontSize: 12, color: "#3f3f46", background: "none", border: "none", cursor: "pointer", padding: "8px 12px", borderRadius: 8 }}>Disconnect</button>
       </div>
 
       {loading && <div style={{ textAlign: "center", padding: "48px 0" }}>
@@ -81,14 +71,14 @@ export default function Dashboard() {
         </div>
       </div>}
 
-      {brief && !loading && <div className="cb-card" style={{ marginBottom: 24, padding: 24 }}>
+      {brief && !loading && <div className="cb-card cb-card-glow-yellow" style={{ marginBottom: 24, padding: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#52525b" }}>Channel Intelligence Brief</span>
           <span style={{ fontSize: 12, fontWeight: 800, color: mc }}>{brief.momentum === "growing" ? "▲" : brief.momentum === "declining" ? "▼" : "→"} {sv(brief.momentum)}</span>
         </div>
         <p style={{ fontSize: 18, fontWeight: 800, color: "#f0f0f1", marginBottom: 20, lineHeight: 1.4 }}>{sv(brief.biggest_problem)}</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {[{ label: "Post On", icon: <Clock size={14} />, value: bestDay, sub: sv(brief.best_upload_time), color: "#facc15" }, { label: "Hidden Opportunity", icon: <Lightbulb size={14} />, value: sv(brief.hidden_opportunity), sub: "", color: "#a78bfa" }, { label: "This Week", icon: <Zap size={14} />, value: sv(brief.this_week_action), sub: "", color: "#4ade80" }].map(item => (
+          {[{ label: "Post On", icon: <Clock size={14} />, value: bestDay, sub: "", color: "#facc15" }, { label: "Hidden Opportunity", icon: <Lightbulb size={14} />, value: sv(brief.hidden_opportunity), sub: "", color: "#a78bfa" }, { label: "This Week", icon: <Zap size={14} />, value: sv(brief.this_week_action), sub: "", color: "#4ade80" }].map(item => (
             <div key={item.label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
               <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#52525b", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>{item.icon}{item.label}</p>
               <p style={{ fontSize: 13, fontWeight: 700, color: item.color, lineHeight: 1.4 }}>{item.value}</p>
@@ -101,9 +91,9 @@ export default function Dashboard() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 }} className="cb-grid-4">
         {[{ label: "Avg Views", value: fmt(avgAnim), color: "#60a5fa" }, { label: "Health", value: `${Math.min(100, Math.round(videos.filter(v => v.views > avg * 1.2).length / Math.max(videos.length, 1) * 100 + 40))}/100`, color: "#4ade80" }, { label: "Best Day", value: bestDay, color: "#facc15" }, { label: "Videos", value: String(videos.length), color: "#a1a1aa" }].map(s => (
-          <div key={s.label} className="cb-card" style={{ padding: 14, textAlign: "center" }}>
+          <div key={s.label} className="cb-card cb-lift" style={{ padding: 14, textAlign: "center" }}>
             <span className="cb-label">{s.label}</span>
-            <p style={{ fontSize: 22, fontWeight: 800, color: s.color, marginTop: 4 }}>{s.value}</p>
+            <p className="cb-stat-num" style={{ color: s.color, marginTop: 4 }}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -112,7 +102,7 @@ export default function Dashboard() {
         <p style={{ fontSize: 13, fontWeight: 800, color: "#f87171", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Videos That Are Failing</p>
         <div style={{ display: "grid", gap: 8 }}>
           {fail.map((v, i) => (
-            <div key={v.id} className="cb-card cb-card-hover" onClick={() => navigate("/diagnose/video-death")} style={{ padding: 14, borderLeft: "3px solid #f87171" }}>
+            <div key={v.id} className="cb-card cb-card-hover cb-card-glow-red cb-lift" onClick={() => navigate("/diagnose/video-death", { state: { videoId: v.id } })} style={{ padding: 14, borderLeft: "3px solid #f87171" }}>
               <p style={{ fontSize: 12, fontWeight: 800, color: "#f87171" }}>{fmt(v.views)} views — {avg > 0 ? Math.round((v.views / avg) * 100) : 0}% of avg</p>
               <p style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f1", marginTop: 2 }}>{v.title}</p>
               {brief?.failing_video_reasons?.[i] && <p style={{ fontSize: 12, color: "#52525b", marginTop: 4 }}>{sv(brief.failing_video_reasons[i])}</p>}

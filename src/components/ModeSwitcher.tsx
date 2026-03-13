@@ -61,7 +61,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
   useEffect(() => {
     if (isChannelConnected()) {
       try {
-        const stored = localStorage.getItem("yt_channel_data");
+        const stored = localStorage.getItem("cb_channel_data");
         if (stored) {
           const data: ChannelData = JSON.parse(stored);
           setAvatar(data.avatar);
@@ -130,7 +130,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
             <span className="text-xs text-muted-foreground hidden md:inline">{channelName}</span>
           </div>
         )}
-        <button onClick={() => { clearChannelData(); navigate("/"); }} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Disconnect">
+        <button onClick={() => { localStorage.removeItem("cb_coach_history"); clearChannelData(); navigate("/"); }} className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" title="Disconnect">
           <LogOut className="h-3.5 w-3.5" />
         </button>
       </div>

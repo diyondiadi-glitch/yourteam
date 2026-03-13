@@ -73,11 +73,14 @@ export default function AICoach() {
   }
 
   async function sendMessage(userText: string) {
+    if (!userText.trim()) return;
+    setFollowUpChips([]);
     const newHistory = [...messages, { role: "user" as const, content: userText }];
     setMessages(newHistory);
+    setInput("");
     setLoading(true);
 
-    const stored = localStorage.getItem("yt_channel_data");
+    const stored = localStorage.getItem("cb_channel_data");
     const ch = stored ? JSON.parse(stored) : {};
     const avg = ch.videos?.length ? Math.round(ch.videos.reduce((s:number,v:any)=>s+(v.views||0),0)/ch.videos.length) : 0;
 
@@ -93,15 +96,20 @@ RULES: Never repeat a previous message. Always respond directly to what the user
       `Conversation so far:\n${historyText}\n\nRespond to the user's latest message now:`
     );
 
-    setMessages([...newHistory, { role: "assistant" as const, content: reply }]);
+    const finalHistory = [...newHistory, { role: "assistant" as const, content: reply }];
+    setMessages(finalHistory);
+    localStorage.setItem("cb_coach_history", JSON.stringify(finalHistory));
     setLoading(false);
   }
 
+  const worstVideo = [...(videos || [])].sort((a, b) => (a.views||0) - (b.views||0))[0];
+  const bestVideo  = [...(videos || [])].sort((a, b) => (b.views||0) - (a.views||0))[0];
+  const subGoal = subscribers < 1000 ? "hitting 1K subs" : subscribers < 10000 ? "hitting 10K subs" : subscribers < 100000 ? "hitting 100K subs" : "doubling my monthly views";
   const quickActionChips = [
-    { label: `Why is my channel ${subscribers < 1000 ? 'slow' : 'plateauing'}?`, icon: BarChart3 },
-    { label: `What should I post on ${bestDay}?`, icon: Target },
-    { label: "Roast my last video", icon: Flame },
-    { label: "Give me my 30-day plan", icon: Zap },
+    { label: worstVideo ? `Why did "${worstVideo.title.slice(0,34)}${worstVideo.title.length>34?"…":""}" flop?` : "Why is my channel slow?", icon: BarChart3 },
+    { label: bestVideo ? `How do I replicate "${bestVideo.title.slice(0,28)}${bestVideo.title.length>28?"…":""}"?` : "What should I post next?", icon: Target },
+    { label: "Roast my last 3 videos brutally", icon: Flame },
+    { label: `Give me my 30-day plan for ${subGoal}`, icon: Zap },
   ];
 
   if (!isConnected) return null;
@@ -146,11 +154,11 @@ RULES: Never repeat a previous message. Always respond directly to what the user
                   className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div 
-                    className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${
-                      m.role === "user" 
-                        ? "bg-zinc-800 text-white" 
-                        : "bg-zinc-900 border-l-4 border-yellow-500 text-zinc-200"
-                    }`}
+                    className="max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed"
+                    style={m.role === "user" 
+                      ? { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "hsl(var(--foreground))" }
+                      : { background: "hsl(var(--background-card))", border: "1px solid rgba(255,255,255,0.07)", borderLeft: "3px solid #facc15", boxShadow: "0 0 0 1px rgba(250,204,21,0.06), 0 4px 20px rgba(250,204,21,0.03)", color: "hsl(var(--foreground))" }
+                    }
                   >
                     {m.content}
                   </div>
@@ -159,7 +167,7 @@ RULES: Never repeat a previous message. Always respond directly to what the user
               
               {loading && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                  <div className="bg-zinc-900 border-l-4 border-yellow-500 p-4 rounded-2xl flex items-center gap-3">
+                  <div className="p-4 rounded-2xl flex items-center gap-3" style={{ background: "hsl(var(--background-card))", borderLeft: "3px solid #facc15", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <div className="flex gap-1">
                       <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                       <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -212,14 +220,14 @@ RULES: Never repeat a previous message. Always respond directly to what the user
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
+              onKeyDown={(e) => { if (e.key === "Enter" && input.trim()) { sendMessage(input); } }}
               placeholder="Ask Max anything about your channel..."
               className="h-14 bg-zinc-900 border-zinc-800 text-white rounded-2xl px-6 focus-visible:ring-yellow-500/50 pr-16"
             />
             <Button
               size="icon"
               disabled={loading || !input.trim()}
-              onClick={() => sendMessage(input)}
+              onClick={() => { if (input.trim()) sendMessage(input); }}
               className="absolute right-2 h-10 w-10 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl shrink-0"
             >
               <Send className="h-5 w-5" />

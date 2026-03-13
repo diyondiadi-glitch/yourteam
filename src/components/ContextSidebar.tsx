@@ -106,7 +106,7 @@ export default function ContextSidebar({ mode }: ContextSidebarProps) {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.03 }}
-              onClick={() => !locked && navigate(item.url)}
+              onClick={() => { if (!locked) navigate(item.url); }}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-all duration-150 relative ${
                 active ? "text-foreground font-medium" : locked ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
               }`}

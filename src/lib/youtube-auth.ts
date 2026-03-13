@@ -36,7 +36,7 @@ export function getToken(): string | null {
 
 export function clearToken() {
   localStorage.removeItem("yt_access_token");
-  localStorage.removeItem("yt_channel_data");
+  localStorage.removeItem("cb_channel_data");
   localStorage.removeItem("channel_connected");
   localStorage.removeItem("channel_id");
   localStorage.removeItem("user_email");

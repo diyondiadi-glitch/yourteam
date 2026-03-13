@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronDown, RefreshCw, Copy, Check, AlertTriangle } from "lucide-react";
 import { callAI } from "@/lib/ai-service";
 import { getMyChannel } from "@/lib/youtube-api";
@@ -33,10 +33,10 @@ const scoreColor = (n: number) => n >= 70 ? "#4ade80" : n >= 50 ? "#facc15" : "#
 
 export default function VideoDeath() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [videos, setVideos] = useState<any[]>([]);
   const [channel, setChannel] = useState<any>(null);
   const [avg, setAvg] = useState(0);
-  const [maxV, setMaxV] = useState(0);
   const [sel, setSel] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -44,6 +44,7 @@ export default function VideoDeath() {
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const maxV = useMemo(() => videos.length ? Math.max(...videos.map(v => v.views || 0)) : 0, [videos]);
 
   useEffect(() => {
     try {
@@ -56,14 +57,17 @@ export default function VideoDeath() {
       const a = Math.round(
         vids.reduce((sum: number, v: any) => sum + (v.views || 0), 0) / vids.length,
       );
-      const mx = Math.max(...vids.map((v: any) => v.views || 0));
       setAvg(a);
-      setMaxV(mx);
 
       const storedSel = getSelectedVideo();
+      const passedId = (location.state as any)?.videoId;
       let initial: any | null = null;
 
-      if (storedSel) {
+      if (passedId) {
+        initial = vids.find(v => v.id === passedId) || null;
+      }
+
+      if (!initial && storedSel) {
         initial = vids.find(v => v.id === storedSel.id) || null;
       }
 
@@ -240,7 +244,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
         }).join(" ");
         const areaD = pathD + ` L ${coords[coords.length - 1].x} ${H} L ${coords[0].x} ${H} Z`;
         return (
-          <div className="mb-4 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4">
+          <div className="mb-4 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4 cb-card-glow-blue">
             <div className="mb-3 flex items-center justify-between">
               <span className="cb-label block text-[11px] tracking-[0.18em] uppercase text-zinc-500">
                 Performance vs Channel
@@ -325,7 +329,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
           {/* Critical failure + gauge */}
           <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-950/60 via-[#0A0A0A] to-[#050505] p-4 shadow-[0_0_40px_rgba(248,113,113,0.35)]">
-              <p className="cb-label mb-2 flex items-center gap-1.5 text-[11px] tracking-[0.18em] uppercase text-rose-300">
+              <p className="cb-label mb-2 flex items-center gap-1.5 text-[11px] tracking-[0.18em] uppercase text-rose-300 cb-card-glow-red">
                 <span className="inline-flex h-1.5 w-1.5 rounded-full bg-rose-400" /> Critical Failure
               </p>
               <p className="text-sm font-semibold leading-relaxed">
@@ -457,7 +461,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
           </div>
 
           {/* Strategic action plan */}
-          <div className="rounded-2xl border border-amber-400/40 bg-[#0A0A0A] p-5">
+          <div className="rounded-2xl border border-amber-400/40 bg-[#0A0A0A] p-5 cb-card-glow-yellow">
             <p className="cb-label mb-2 text-[11px] tracking-[0.18em] uppercase text-amber-300">
               Strategic Action Plan
             </p>
@@ -470,7 +474,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
                   key={i}
                   className="flex items-start gap-3 rounded-xl border border-white/5 bg-black/30 px-3 py-2"
                 >
-                  <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-[11px] font-semibold text-amber-300">
+                  <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-[11px] font-semibold text-amber-300" style={{ boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
                     {i + 1}
                   </span>
                   <p className="text-xs leading-relaxed text-zinc-200">

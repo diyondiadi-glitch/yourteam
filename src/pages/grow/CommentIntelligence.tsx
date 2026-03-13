@@ -17,6 +17,8 @@ export default function CommentIntelligence() {
   const [topVids, setTopVids] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
+  const [allVids, setAllVids] = useState<any[]>([]);
+  const [selectedVids, setSelectedVids] = useState<any[]>([]);
 
   useEffect(() => {
     const s = localStorage.getItem("cb_channel_data");
@@ -25,6 +27,8 @@ export default function CommentIntelligence() {
     const sorted = [...(d.videos || [])].sort((a: any, b: any) => (b.views || 0) - (a.views || 0));
     const top = sorted.slice(0, 3);
     setTopVids(top);
+    setAllVids(d.videos || []);
+    setSelectedVids(top);
     run(top, d);
   }, []);
 
@@ -78,6 +82,37 @@ export default function CommentIntelligence() {
         </div>)}
       </div>}
 
+      {/* Video selector */}
+      {allVids.length > 3 && (
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#71717a", marginBottom: 8 }}>Select videos to analyse (max 3)</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+            {allVids.slice(0, 9).map((v: any) => {
+              const active = selectedVids.some((sv: any) => sv.id === v.id);
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => {
+                    const next = active ? selectedVids.filter((sv: any) => sv.id !== v.id) : [...selectedVids, v].slice(-3);
+                    if (next.length === 0) return;
+                    setSelectedVids(next);
+                  }}
+                  style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, minHeight: 28, border: `1px solid ${active ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.07)"}`, background: active ? "rgba(96,165,250,0.1)" : "transparent", color: active ? "#60a5fa" : "#71717a", cursor: "pointer" }}
+                >
+                  {v.title.slice(0, 26)}{v.title.length > 26 ? "…" : ""}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => { const s = localStorage.getItem("cb_channel_data"); if (s) run(selectedVids, JSON.parse(s)); }}
+            style={{ fontSize: 12, fontWeight: 800, color: "#000", background: "#facc15", border: "none", cursor: "pointer", padding: "8px 16px", borderRadius: 8, minHeight: 36 }}
+          >
+            Analyse Selected Videos
+          </button>
+        </div>
+      )}
+
       {loading && <div style={{ textAlign: "center", padding: "40px 0" }}>
         <p style={{ fontSize: 14, color: "#71717a", marginBottom: 10 }}>Mining comment section...</p>
         <div style={{ width: 180, height: 4, background: "#1c1c20", borderRadius: 4, margin: "0 auto" }}>
@@ -93,7 +128,7 @@ export default function CommentIntelligence() {
       {report && !loading && <div className="cb-fade">
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }} className="cb-grid-2">
-          <div className="cb-card" style={{ padding: 16, textAlign: "center" }}>
+          <div className="cb-card cb-card-glow-blue" style={{ padding: 16, textAlign: "center" }}>
             <span className="cb-label">Sentiment</span>
             <p style={{ fontSize: 36, fontWeight: 800, color: sentimentColor, margin: "6px 0 0" }}>{report.sentiment_score}</p>
             <p style={{ fontSize: 12, color: "#52525b" }}>{sv(report.overall_sentiment)}</p>
@@ -104,7 +139,7 @@ export default function CommentIntelligence() {
           </div>
         </div>
 
-        {report.hidden_insight && <div className="cb-card" style={{ marginBottom: 16, borderLeft: "3px solid #facc15", padding: 16 }}>
+        {report.hidden_insight && <div className="cb-card cb-card-glow-blue" style={{ marginBottom: 16, borderLeft: "3px solid #facc15", padding: 16 }}>
           <span className="cb-label" style={{ color: "#facc15" }}>Hidden Insight</span>
           <p style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f1", marginTop: 6 }}>{sv(report.hidden_insight)}</p>
         </div>}

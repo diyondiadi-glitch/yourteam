@@ -447,7 +447,7 @@ ${myContext} ${compContext}`
             </motion.div>
           )}
           {/* BATTLE VERDICT */}
-          <motion.div variants={fade} initial="hidden" animate="show" className="cb-card cb-card-verdict relative overflow-hidden">
+          <motion.div variants={fade} initial="hidden" animate="show" className="cb-card cb-card-verdict cb-card-glow-yellow relative overflow-hidden">
             <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(circle at center, #facc15, transparent 70%)" }} />
             <div className="relative z-10">
               <p className="t-label mb-3" style={{ color: "#facc15" }}>⚔️ BATTLE VERDICT</p>
@@ -477,7 +477,7 @@ ${myContext} ${compContext}`
 
           {/* WIN / LOSE SPLIT */}
           <div className="grid md:grid-cols-2 gap-4">
-            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.1 }} className="cb-card cb-card-problem">
+            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.1 }} className="cb-card cb-card-problem cb-card-glow-red">
               <p className="t-label mb-3 flex items-center gap-2" style={{ color: "#f87171" }}>
                 <TrendingDown className="h-4 w-4" /> They Win At
               </p>
@@ -491,7 +491,7 @@ ${myContext} ${compContext}`
               </div>
             </motion.div>
 
-            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.15 }} className="cb-card cb-card-win">
+            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.15 }} className="cb-card cb-card-win cb-card-glow-green">
               <p className="t-label mb-3 flex items-center gap-2" style={{ color: "#4ade80" }}>
                 <TrendingUp className="h-4 w-4" /> You Win At
               </p>
@@ -755,7 +755,7 @@ ${myContext} ${compContext}`
 
           {/* 3-STEP ACTION PLAN */}
           {(report.action_plan || []).length > 0 && (
-            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.75 }} className="cb-card" style={{ borderLeft: "4px solid #4ade80" }}>
+            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.75 }} className="cb-card cb-card-glow-green" style={{ borderLeft: "4px solid #4ade80" }}>
               <p className="t-label mb-4 flex items-center gap-2" style={{ color: "#4ade80" }}>
                 <Shield className="h-4 w-4" /> Your 3 Moves This Week
               </p>
