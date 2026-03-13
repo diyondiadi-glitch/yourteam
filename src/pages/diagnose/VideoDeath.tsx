@@ -474,7 +474,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
                   key={i}
                   className="flex items-start gap-3 rounded-xl border border-white/5 bg-black/30 px-3 py-2"
                 >
-                  <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-[11px] font-semibold text-amber-300">
+                  <span className="mt-0.5 inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-[11px] font-semibold text-amber-300" style={{ boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
                     {i + 1}
                   </span>
                   <p className="text-xs leading-relaxed text-zinc-200">
