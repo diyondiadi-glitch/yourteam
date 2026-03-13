@@ -71,7 +71,7 @@ export default function Dashboard() {
         </div>
       </div>}
 
-      {brief && !loading && <div className="cb-card" style={{ marginBottom: 24, padding: 24 }}>
+      {brief && !loading && <div className="cb-card cb-card-glow-yellow" style={{ marginBottom: 24, padding: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#52525b" }}>Channel Intelligence Brief</span>
           <span style={{ fontSize: 12, fontWeight: 800, color: mc }}>{brief.momentum === "growing" ? "▲" : brief.momentum === "declining" ? "▼" : "→"} {sv(brief.momentum)}</span>
