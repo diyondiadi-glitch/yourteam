@@ -167,7 +167,7 @@ RULES: Never repeat a previous message. Always respond directly to what the user
               
               {loading && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                  <div className="bg-zinc-900 border-l-4 border-yellow-500 p-4 rounded-2xl flex items-center gap-3">
+                  <div className="p-4 rounded-2xl flex items-center gap-3" style={{ background: "hsl(var(--background-card))", borderLeft: "3px solid #facc15", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <div className="flex gap-1">
                       <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                       <span className="h-1.5 w-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
