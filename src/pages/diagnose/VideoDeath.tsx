@@ -57,9 +57,7 @@ export default function VideoDeath() {
       const a = Math.round(
         vids.reduce((sum: number, v: any) => sum + (v.views || 0), 0) / vids.length,
       );
-      const mx = Math.max(...vids.map((v: any) => v.views || 0));
       setAvg(a);
-      setMaxV(mx);
 
       const storedSel = getSelectedVideo();
       let initial: any | null = null;
