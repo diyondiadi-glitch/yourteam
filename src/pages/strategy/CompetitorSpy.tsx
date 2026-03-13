@@ -491,7 +491,7 @@ ${myContext} ${compContext}`
               </div>
             </motion.div>
 
-            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.15 }} className="cb-card cb-card-win">
+            <motion.div variants={fade} initial="hidden" animate="show" transition={{ delay: 0.15 }} className="cb-card cb-card-win cb-card-glow-green">
               <p className="t-label mb-3 flex items-center gap-2" style={{ color: "#4ade80" }}>
                 <TrendingUp className="h-4 w-4" /> You Win At
               </p>
