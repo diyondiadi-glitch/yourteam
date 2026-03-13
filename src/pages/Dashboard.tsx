@@ -93,7 +93,7 @@ export default function Dashboard() {
         {[{ label: "Avg Views", value: fmt(avgAnim), color: "#60a5fa" }, { label: "Health", value: `${Math.min(100, Math.round(videos.filter(v => v.views > avg * 1.2).length / Math.max(videos.length, 1) * 100 + 40))}/100`, color: "#4ade80" }, { label: "Best Day", value: bestDay, color: "#facc15" }, { label: "Videos", value: String(videos.length), color: "#a1a1aa" }].map(s => (
           <div key={s.label} className="cb-card cb-lift" style={{ padding: 14, textAlign: "center" }}>
             <span className="cb-label">{s.label}</span>
-            <p style={{ fontSize: 22, fontWeight: 800, color: s.color, marginTop: 4 }}>{s.value}</p>
+            <p className="cb-stat-num" style={{ color: s.color, marginTop: 4 }}>{s.value}</p>
           </div>
         ))}
       </div>
