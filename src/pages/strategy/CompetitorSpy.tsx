@@ -447,7 +447,7 @@ ${myContext} ${compContext}`
             </motion.div>
           )}
           {/* BATTLE VERDICT */}
-          <motion.div variants={fade} initial="hidden" animate="show" className="cb-card cb-card-verdict relative overflow-hidden">
+          <motion.div variants={fade} initial="hidden" animate="show" className="cb-card cb-card-verdict cb-card-glow-yellow relative overflow-hidden">
             <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(circle at center, #facc15, transparent 70%)" }} />
             <div className="relative z-10">
               <p className="t-label mb-3" style={{ color: "#facc15" }}>⚔️ BATTLE VERDICT</p>
