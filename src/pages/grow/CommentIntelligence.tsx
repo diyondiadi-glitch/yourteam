@@ -82,6 +82,37 @@ export default function CommentIntelligence() {
         </div>)}
       </div>}
 
+      {/* Video selector */}
+      {allVids.length > 3 && (
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#71717a", marginBottom: 8 }}>Select videos to analyse (max 3)</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+            {allVids.slice(0, 9).map((v: any) => {
+              const active = selectedVids.some((sv: any) => sv.id === v.id);
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => {
+                    const next = active ? selectedVids.filter((sv: any) => sv.id !== v.id) : [...selectedVids, v].slice(-3);
+                    if (next.length === 0) return;
+                    setSelectedVids(next);
+                  }}
+                  style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, minHeight: 28, border: `1px solid ${active ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.07)"}`, background: active ? "rgba(96,165,250,0.1)" : "transparent", color: active ? "#60a5fa" : "#71717a", cursor: "pointer" }}
+                >
+                  {v.title.slice(0, 26)}{v.title.length > 26 ? "…" : ""}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => { const s = localStorage.getItem("cb_channel_data"); if (s) run(selectedVids, JSON.parse(s)); }}
+            style={{ fontSize: 12, fontWeight: 800, color: "#000", background: "#facc15", border: "none", cursor: "pointer", padding: "8px 16px", borderRadius: 8, minHeight: 36 }}
+          >
+            Analyse Selected Videos
+          </button>
+        </div>
+      )}
+
       {loading && <div style={{ textAlign: "center", padding: "40px 0" }}>
         <p style={{ fontSize: 14, color: "#71717a", marginBottom: 10 }}>Mining comment section...</p>
         <div style={{ width: 180, height: 4, background: "#1c1c20", borderRadius: 4, margin: "0 auto" }}>
