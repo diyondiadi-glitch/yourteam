@@ -329,7 +329,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
           {/* Critical failure + gauge */}
           <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-950/60 via-[#0A0A0A] to-[#050505] p-4 shadow-[0_0_40px_rgba(248,113,113,0.35)]">
-              <p className="cb-label mb-2 flex items-center gap-1.5 text-[11px] tracking-[0.18em] uppercase text-rose-300">
+              <p className="cb-label mb-2 flex items-center gap-1.5 text-[11px] tracking-[0.18em] uppercase text-rose-300 cb-card-glow-red">
                 <span className="inline-flex h-1.5 w-1.5 rounded-full bg-rose-400" /> Critical Failure
               </p>
               <p className="text-sm font-semibold leading-relaxed">
