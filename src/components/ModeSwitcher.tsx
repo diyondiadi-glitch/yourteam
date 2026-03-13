@@ -61,7 +61,7 @@ export default function ModeSwitcher({ onModeChange }: ModeSwitcherProps) {
   useEffect(() => {
     if (isChannelConnected()) {
       try {
-        const stored = localStorage.getItem("yt_channel_data");
+        const stored = localStorage.getItem("cb_channel_data");
         if (stored) {
           const data: ChannelData = JSON.parse(stored);
           setAvatar(data.avatar);
