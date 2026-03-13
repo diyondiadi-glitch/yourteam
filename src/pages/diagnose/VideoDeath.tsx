@@ -244,7 +244,7 @@ Channel: ${ch.name}, ${ch.subscribers} subscribers`
         }).join(" ");
         const areaD = pathD + ` L ${coords[coords.length - 1].x} ${H} L ${coords[0].x} ${H} Z`;
         return (
-          <div className="mb-4 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4">
+          <div className="mb-4 rounded-2xl border border-white/5 bg-[#0A0A0A] p-4 cb-card-glow-blue">
             <div className="mb-3 flex items-center justify-between">
               <span className="cb-label block text-[11px] tracking-[0.18em] uppercase text-zinc-500">
                 Performance vs Channel
